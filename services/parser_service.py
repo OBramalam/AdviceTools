@@ -21,36 +21,37 @@ class ParserService:
 
     def _build_data_objects(self, data):
 
-        profile: Profile = {
-            'id': self.user_id,
-            'name': data['name'],
-            'age': data['age'],
-            'retirement_age': data['retirement_age'],
-            'current_portfolio_value': data['current_portfolio_value']
-        }
+        profile = Profile(
+            id=self.user_id,
+            name=data['name'],
+            age=data['age'],
+            retirement_age=data['retirement_age'],
+            plan_end_age=data['plan_end_age'],
+            current_portfolio_value=data['current_portfolio_value'],
+        )
 
-        incomes: list[RecurringCashFlow] = [
-            {
-                'profile': self.user_id,
-                'name': data['income_source'][i],
-                'amount': data['income_amount'][i],
-                'start_date': age_to_date(data['age'], data['income_start_age'][i]),
-                'end_date': age_to_date(data['age'], data['income_end_age'][i]),
-            }
+        incomes = [
+            RecurringCashFlow(
+                profile=self.user_id,
+                name=data['income_source'][i],
+                amount=data['income_amount'][i],
+                start_date=age_to_date(data['age'], data['income_start_age'][i]),
+                end_date=age_to_date(data['age'], data['income_end_age'][i]),
+            )
             for i in range(len(data['income_source']))
         ]
 
-        expenses: list[RecurringCashFlow] = [
-            {
-                'profile': self.user_id,
-                'name': data['expense_name'][i],
-                'amount': -data['expense_amount'][i],
-                'start_date': age_to_date(data['age'], data['expense_start_age'][i]),
-                'end_date': age_to_date(data['age'], data['expense_start_age'][i]),
-            }
+        expenses = [
+            RecurringCashFlow(
+                profile=self.user_id,
+                name=data['expense_name'][i],
+                amount=-data['expense_amount'][i],
+                start_date=age_to_date(data['age'], data['expense_start_age'][i]),
+                end_date=age_to_date(data['age'], data['expense_end_age'][i]),
+            )
             for i in range(len(data['expense_name']))
         ]
 
-        cashflows: list[RecurringCashFlow] = incomes + expenses
+        recurring_cashflows = incomes + expenses
 
-        return profile, cashflows
+        return profile, recurring_cashflows

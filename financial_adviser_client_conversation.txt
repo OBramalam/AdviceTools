@@ -10,6 +10,10 @@ Financial Adviser: Thank you. And at what age would you ideally like to retire?
 
 Client: I’d like to retire around 65, if possible.
 
+Financial Adviser: Great, and what age would you like to plan to? I recommend 100 because of rising life expectancies, plus we want to build in some margin for error, so you don't run out of money too early.
+
+Client: Okay, 100 sounds good.
+
 Financial Adviser: That sounds reasonable. Now, let’s talk about your income. What are your current sources of income?
 
 Client: I work full-time as a marketing manager and earn a salary. I also receive some rental income from a property I own.
