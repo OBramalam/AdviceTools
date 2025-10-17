@@ -1,0 +1,37 @@
+Financial Adviser: Good morning, Andrea, thanks for coming in today. I'm looking forward to learning more about your financial situation and goals so we can build a comprehensive financial plan together.
+
+Client: Good morning, thank you. I'm excited to get started.
+
+Financial Adviser: Great. Let's begin with some basic information. Can you tell me your age?
+
+Client: Sure, I'm 42 years old.
+
+Financial Adviser: Thank you. And at what age would you ideally like to retire?
+
+Client: I’d like to retire around 65, if possible.
+
+Financial Adviser: That sounds reasonable. Now, let’s talk about your income. What are your current sources of income?
+
+Client: I work full-time as a marketing manager and earn a salary. I also receive some rental income from a property I own.
+
+Financial Adviser: Got it. Can you tell me the approximate annual income from each source?
+
+Client: My salary is about $95,000 per year, and the rental property brings in around $12,000 annually.
+
+Financial Adviser: Excellent. Now let’s look at your expenses. What would you estimate your total monthly expenses to be?
+
+Client: Including mortgage, utilities, groceries, insurance, and other costs, I’d say around $4,500 per month.
+
+Financial Adviser: So that’s about $54,000 annually. Thank you. Now, do you currently have a retirement account?
+
+Client: Yes, I have a 401(k) through my employer.
+
+Financial Adviser: Great. What is the current value of your retirement account?
+
+Client: It’s approximately $120,000 right now.
+
+Financial Adviser: Perfect. That gives me a good starting point. Based on this information, I’ll begin drafting a financial plan that aligns with your retirement goals and helps optimize your income and savings. We’ll also look at investment strategies and risk management.
+
+Client: Sounds good. I appreciate your help.
+
+Financial Adviser: My pleasure. I’ll follow up with a summary and next steps soon. Thanks again for meeting with me today.
