@@ -11,11 +11,11 @@ class Profile(BaseModel):
 
 class BaseCashFlow(BaseModel):
     profile: int = Field()
-    source: str = Field()
+    name: str = Field()
     amount: float = Field()
 
 class SingleCashFlow(BaseCashFlow):
-    date: date = Field()
+    flow_date: date = Field()
 
 class RecurringCashFlow(BaseCashFlow):
     start_date: date = Field()
