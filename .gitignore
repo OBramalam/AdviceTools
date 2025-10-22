@@ -181,3 +181,6 @@ Desktop.ini
 
 # LlamaIndex specific
 *.llamaindex
+
+# UI
+uploads/

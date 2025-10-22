@@ -48,7 +48,7 @@ class SimulationService:
             "oneoff_transactions": [],
             "inflation": self.adviser_config.inflation,
             "initial_wealth": self.profile.current_portfolio_value,
-            "percentiles": [25, 50, 75],
+            "percentiles": [5, 25, 50, 75, 95],
             "simulation_type": SimulationType.CHOLESKY,
             "step_size": SimulationStepType.ANNUAL,
             "weights_interpolation": InterpolationMethod.FFILL,

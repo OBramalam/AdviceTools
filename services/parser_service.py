@@ -20,7 +20,7 @@ class ParserService:
         return profile, cashflows
 
     def _build_data_objects(self, data):
-
+        print(data)
         profile = Profile(
             id=self.user_id,
             name=data['name'],

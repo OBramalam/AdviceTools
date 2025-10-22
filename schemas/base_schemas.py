@@ -29,4 +29,4 @@ class AdviserConfig(BaseModel):
     inflation: float = Field(default=0.02)
     asset_costs: dict[str, float] = Field(default={"stocks": 0.001, "bonds": 0.001, "cash": 0.001})
     expected_returns: dict[str, float] = Field(default={"stocks": 0.08, "bonds": 0.04, "cash": 0.02})
-    number_of_simulations: int = Field(default=1000)
+    number_of_simulations: int = Field(default=5000)
