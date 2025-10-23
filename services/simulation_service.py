@@ -14,16 +14,16 @@ class SimulationService:
         self, 
         profile: Profile, 
         cash_flows: List[RecurringCashFlow], 
-        adviser_config: AdviserConfig
+        adviser_config: AdviserConfig,
+        weights: List[SimulationPortfolioWeights] = None,
     ):
         self.profile = profile
         self.cash_flows = cash_flows
         self.adviser_config = adviser_config
+        self.weights = weights or self._build_weights()
 
     def simulate(self):
-
         data = self._build_simulation_data()
-
         command = RunSimulationCommand.model_validate(convert_json_to_snake(data))
         result = command.handle()
         return result
@@ -36,14 +36,13 @@ class SimulationService:
         plan_end_year = plan_end_date.year
 
         cash_flows = self._build_cash_flows(plan_start_year, plan_end_year)
-        weights = self._build_weights(plan_start_year, plan_end_year)
         expected_returns = self._build_expected_returns()
         asset_costs = self._build_asset_costs()
 
         data = {
             "number_of_simulations": self.adviser_config.number_of_simulations,
             "end_step": plan_end_year - plan_start_year,
-            "weights": weights,
+            "weights": self.weights,
             "savings_rates": cash_flows,
             "oneoff_transactions": [],
             "inflation": self.adviser_config.inflation,

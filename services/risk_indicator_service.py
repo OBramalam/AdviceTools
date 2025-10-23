@@ -1,6 +1,5 @@
 from schemas.base_schemas import Profile
 
-
 def calculate_risk_indicator(years_to_retirement: int):
 
     if years_to_retirement < 1:

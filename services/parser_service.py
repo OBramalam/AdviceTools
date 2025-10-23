@@ -6,21 +6,19 @@ from common.utils import age_to_date
 class ParserService:
     load_dotenv()
 
-
     def __init__(self, user_id, filepath):
         self.user_id = user_id
         self.filepath = filepath
         self.extractor = LlamaExtract()
 
     def extract_data(self):
-
         agent = self.extractor.get_agent(name='parser')
         data = agent.extract(self.filepath).data
         profile, cashflows = self._build_data_objects(data)
         return profile, cashflows
 
     def _build_data_objects(self, data):
-        print(data)
+
         profile = Profile(
             id=self.user_id,
             name=data['name'],
