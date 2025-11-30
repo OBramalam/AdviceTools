@@ -20,7 +20,7 @@ class SimulationService:
         self.profile = profile
         self.cash_flows = cash_flows
         self.adviser_config = adviser_config
-        self.weights = weights or self._build_weights()
+        self.weights = weights if weights else None
 
     def simulate(self):
         data = self._build_simulation_data()
@@ -38,11 +38,12 @@ class SimulationService:
         cash_flows = self._build_cash_flows(plan_start_year, plan_end_year)
         expected_returns = self._build_expected_returns()
         asset_costs = self._build_asset_costs()
+        weights = self.weights if self.weights else self._build_weights(plan_start_year, plan_end_year)
 
         data = {
             "number_of_simulations": self.adviser_config.number_of_simulations,
             "end_step": plan_end_year - plan_start_year,
-            "weights": self.weights,
+            "weights": weights,
             "savings_rates": cash_flows,
             "oneoff_transactions": [],
             "inflation": self.adviser_config.inflation,

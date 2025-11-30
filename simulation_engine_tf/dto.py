@@ -1,26 +1,24 @@
 import pydantic
 import numpy as np
+import tensorflow as tf
+
 
 class AbstractDTO(pydantic.BaseModel):
-    """
-    Abstract base class for Data Transfer Objects (DTOs).
-    This class provides a common interface for all DTOs in the application.
-    """
-    
     class Config:
-        """Pydantic configuration."""
         arbitrary_types_allowed = True
-        json_encoders = {
-            pydantic.BaseModel: lambda v: v.model_dump(),
-            pydantic.BaseModel.__name__: lambda v: v.model_dump(),
-        }
         use_enum_values = True
         allow_population_by_field_name = True
         validate_assignment = True
         validate_all = True
-        
+
+
+def _to_numpy(x):
+    if isinstance(x, tf.Tensor):
+        return x.numpy()
+    return x
+
+
 class SimulationDataDTO(AbstractDTO):
-    """Data Transfer Object for simulation data."""
     simulation_data: np.ndarray
     percentiles: dict[float, list[float]]
     mean: list[float]
@@ -29,21 +27,33 @@ class SimulationDataDTO(AbstractDTO):
     final_std: float
     final_min: float
     final_max: float
-    
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def convert_tensors(cls, values):
+        d = dict(values)
+        d["simulation_data"] = _to_numpy(d["simulation_data"])
+
+        m = d.get("mean")
+        if isinstance(m, tf.Tensor):
+            d["mean"] = m.numpy().tolist()
+        elif isinstance(m, np.ndarray):
+            d["mean"] = m.tolist()
+        elif isinstance(m, list):
+            d["mean"] = m
+        else:
+            d["mean"] = list(np.atleast_1d(m))
+        return d
+
 
 class SimulationResultDTO(AbstractDTO):
     real: SimulationDataDTO
     nominal: SimulationDataDTO
     destitution: list[float]
     timesteps: list[float]
-    # final_mean: float
-    # final_median: float
-    # final_std: float
-    # final_min: float
-    # final_max: float
     simulation_time: float
     simulation_time_per_timestep: float
     simulation_time_per_path: float
     total_parameters: int
     destitution_area: float
-    
+

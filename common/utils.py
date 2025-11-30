@@ -56,3 +56,4 @@ def convert_json_to_camel(obj: Union[object, dict, list]) -> Union[object, dict,
         return [convert_json_to_camel(v) for v in obj]
     else:
         return obj
+

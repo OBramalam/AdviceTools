@@ -173,8 +173,14 @@ class RunSimulationCommand(pydantic.BaseModel):
         
         end = time.time()
         
+        simulation_data = simulation.simulation_data
+        simulation_data_real = convert_to_real_wealth(
+            simulation_data, self.base_simulation_data.index.values, self.inflation
+        )
+        
 
         nominal = SimulationDataDTO(
+            simulation_data=simulation_data,
             percentiles={percentile: percentiles[i, :].tolist() for i, percentile in enumerate(self.percentiles)},
             mean=mean.tolist(),
             final_mean=mean[-1],
@@ -184,6 +190,7 @@ class RunSimulationCommand(pydantic.BaseModel):
             final_std=final_std,
         )
         real = SimulationDataDTO(
+            simulation_data=simulation_data_real,
             percentiles={percentile: percentiles_real[i, :].tolist() for i, percentile in enumerate(self.percentiles)},
             mean=mean_real.tolist(),
             final_mean=mean_real[-1],
