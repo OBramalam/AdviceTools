@@ -3,7 +3,6 @@ import datetime
 from pydantic import BaseModel, Field
 from .base_schemas import Profile
 
-
 class ExtractionSchema(BaseModel):
     name: str = Field(description="Name of the client")
     age: float = Field(description="Age of the client")

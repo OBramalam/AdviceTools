@@ -15,7 +15,7 @@ def age_to_date(current_age, target_age):
 
 def to_annual(amount: float) -> float:
     return amount * 12  # Convert monthly to annual - update when we add more simulation step types.
-
+    
 
 def year_to_simulation_step(date, start_year) -> int:
     return date.year - start_year
@@ -56,4 +56,37 @@ def convert_json_to_camel(obj: Union[object, dict, list]) -> Union[object, dict,
         return [convert_json_to_camel(v) for v in obj]
     else:
         return obj
+
+
+def pydantic_to_sqlalchemy_financial_plan(pydantic_plan, sqlalchemy_plan_class, exclude_fields: set = None):
+    if exclude_fields is None:
+        exclude_fields = {'id', 'created_at', 'updated_at'}
+    
+    data = pydantic_plan.model_dump(exclude=exclude_fields)
+    
+    sqlalchemy_fields = {'user_id', 'name', 'description', 'start_age', 'retirement_age', 
+                         'plan_end_age', 'current_portfolio_value', 'portfolio_target_value'}
+    data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
+    
+    return sqlalchemy_plan_class(**data)
+
+
+def pydantic_to_sqlalchemy_cashflow(pydantic_cashflow, sqlalchemy_cashflow_class, exclude_fields: set = None):
+    if exclude_fields is None:
+        exclude_fields = {'id', 'created_at', 'updated_at'}
+    
+    data = pydantic_cashflow.model_dump(exclude=exclude_fields)
+    
+    sqlalchemy_fields = {'plan_id', 'name', 'description', 'amount', 'start_date', 'end_date'}
+    data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
+    
+    return sqlalchemy_cashflow_class(**data)
+
+
+def sqlalchemy_to_pydantic_financial_plan(sqlalchemy_plan, pydantic_plan_class):
+    return pydantic_plan_class.model_validate(sqlalchemy_plan)
+
+
+def sqlalchemy_to_pydantic_cashflow(sqlalchemy_cashflow, pydantic_cashflow_class):
+    return pydantic_cashflow_class.model_validate(sqlalchemy_cashflow)
 
