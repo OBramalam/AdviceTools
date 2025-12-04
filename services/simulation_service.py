@@ -2,7 +2,7 @@ from datetime import date
 import datetime
 from dateutil.relativedelta import relativedelta
 from typing import List
-from schemas import Profile, RecurringCashFlow, AdviserConfig
+from schemas import FinancialPlan, CashFlow, AdviserConfig
 from common.utils import to_annual, convert_json_to_snake
 from simulation_engine.commands import RunSimulationCommand
 from simulation_engine.common.types import CashFlow, SimulationPortfolioWeights, ExpectedReturns, AssetCosts
@@ -12,12 +12,12 @@ from .risk_indicator_service import calculate_risk_indicator
 class SimulationService:
     def __init__(
         self, 
-        profile: Profile, 
-        cash_flows: List[RecurringCashFlow], 
+        financial_plan: FinancialPlan, 
+        cash_flows: List[CashFlow], 
         adviser_config: AdviserConfig,
         weights: List[SimulationPortfolioWeights] = None,
     ):
-        self.profile = profile
+        self.financial_plan = financial_plan
         self.cash_flows = cash_flows
         self.adviser_config = adviser_config
         self.weights = weights if weights else None
@@ -28,10 +28,9 @@ class SimulationService:
         result = command.handle()
         return result
 
-
     def _build_simulation_data(self):
-        plan_start_date = datetime.date.today()
-        plan_end_date = plan_start_date + relativedelta(years=int(self.profile.plan_end_age)-int(self.profile.age))
+        plan_start_date = self.financial_plan.plan_start_date
+        plan_end_date = plan_start_date + relativedelta(years=int(self.financial_plan.plan_end_age)-int(self.financial_plan.start_age))
         plan_start_year = plan_start_date.year
         plan_end_year = plan_end_date.year
 
@@ -47,7 +46,7 @@ class SimulationService:
             "savings_rates": cash_flows,
             "oneoff_transactions": [],
             "inflation": self.adviser_config.inflation,
-            "initial_wealth": self.profile.current_portfolio_value,
+            "initial_wealth": self.financial_plan.current_portfolio_value,
             "percentiles": [5, 25, 50, 75, 95],
             "simulation_type": SimulationType.CHOLESKY,
             "step_size": SimulationStepType.ANNUAL,
@@ -103,7 +102,7 @@ class SimulationService:
         last_equity_allocation = None
         
         for year in range(plan_start_year, plan_end_year):
-            years_to_retirement = (self.profile.retirement_age - self.profile.age) - step
+            years_to_retirement = (self.financial_plan.retirement_age - self.financial_plan.start_age) - step
             risk_score = calculate_risk_indicator(years_to_retirement)
             equity_allocation = self.adviser_config.risk_allocation_map[risk_score]
             
@@ -134,4 +133,3 @@ class SimulationService:
             cash=self.adviser_config.asset_costs['cash']
         )
         return asset_costs
- 

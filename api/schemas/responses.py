@@ -1,4 +1,4 @@
-from schemas.base_schemas import Profile, RecurringCashFlow, AdviserConfig
+from schemas.base_schemas import FinancialPlan, CashFlow, AdviserConfig
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
@@ -12,8 +12,8 @@ class SimulationResponse(BaseModel):
 
 class UploadResponse(BaseModel):
     success: bool
-    profile: Optional[Profile] = None
-    cash_flows: Optional[List[RecurringCashFlow]] = None
+    financial_plan: Optional[FinancialPlan] = None
+    cash_flows: Optional[List[CashFlow]] = None
     adviser_config: Optional[AdviserConfig] = None
     error: Optional[str] = None
 

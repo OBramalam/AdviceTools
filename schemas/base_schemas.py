@@ -35,6 +35,7 @@ class AdviserConfig(BaseModel):
     expected_returns: dict[str, float] = Field(default={"stocks": 0.08, "bonds": 0.04, "cash": 0.02})
     number_of_simulations: int = Field(default=5000)
 
+
 class FinancialPlan(BaseModel):
     id: Optional[int] = Field(None, description="Unique id (auto-generated)")
     user_id: int = Field(description="User who owns this financial plan")
@@ -46,6 +47,7 @@ class FinancialPlan(BaseModel):
     plan_start_date: datetime = Field(description="The date the client started planning")
     current_portfolio_value: float = Field(description="The current value of the clients retirement/private wealth investments")
     portfolio_target_value: float = Field(description="The target value of the clients retirement/private wealth investments")
+
 
 class CashFlow(BaseModel):
     id: Optional[int] = Field(None, description="Unique id (auto-generated)")

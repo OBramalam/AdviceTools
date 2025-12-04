@@ -60,6 +60,7 @@ async def register(
             db.add(user)
             db.commit()
             db.refresh(user)
+            
         except IntegrityError:
             db.rollback()
             raise HTTPException(

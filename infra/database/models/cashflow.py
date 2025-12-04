@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, func
 from sqlalchemy.orm import relationship
 from ..base import Base
 from sqlalchemy.sql.schema import ForeignKey
@@ -15,5 +15,5 @@ class CashFlow(Base):
     amount = Column(Float, nullable=False)
     start_date = Column(DateTime, nullable = True)
     end_date = Column(DateTime, nullable = True)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, func
 from sqlalchemy.orm import relationship
 from ..base import Base
 from sqlalchemy.sql.schema import ForeignKey
@@ -14,9 +14,10 @@ class FinancialPlan(Base):
     start_age = Column(Integer, nullable=False)
     retirement_age = Column(Integer, nullable=False)
     plan_end_age = Column(Integer, nullable=False)
+    plan_start_date = Column(DateTime, nullable=False)
     current_portfolio_value = Column(Float, nullable=False)
     portfolio_target_value = Column(Float, nullable=False)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
-
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    
     cashflows = relationship("CashFlow", back_populates="financial_plan")

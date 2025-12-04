@@ -8,14 +8,15 @@ from typing import Union
 def age_to_date(current_age, target_age):
     today = datetime.date.today()
     today = today.replace(day=calendar.monthrange(today.year, today.month)[1])
-
+    
     year_increment = target_age - current_age
     
     return today + relativedelta(years=year_increment)
 
+
 def to_annual(amount: float) -> float:
     return amount * 12  # Convert monthly to annual - update when we add more simulation step types.
-    
+
 
 def year_to_simulation_step(date, start_year) -> int:
     return date.year - start_year
@@ -24,8 +25,10 @@ def year_to_simulation_step(date, start_year) -> int:
 def camel_to_snake(name: str) -> str:
     return "".join(["_" + char.lower() if char.isupper() else char for char in name]).lstrip("_")
 
+
 def snake_to_camel(name: str) -> str:
     return "".join([char.capitalize() for char in name.split("_")])
+
 
 def convert_key_to_snake(s: str) -> str:
     if " " in s:
@@ -38,6 +41,7 @@ def convert_key_to_snake(s: str) -> str:
     s = "".join(words)
     return camel_to_snake(s)
 
+
 def convert_json_to_snake(obj: Union[object, dict, list]) -> Union[object, dict, list]:
     if isinstance(obj, dict):
         return {convert_key_to_snake(k): convert_json_to_snake(v) for k, v in obj.items()}
@@ -45,9 +49,11 @@ def convert_json_to_snake(obj: Union[object, dict, list]) -> Union[object, dict,
         return [convert_json_to_snake(v) for v in obj]
     else:
         return obj
-    
+
+
 def convert_key_to_camel(s: str) -> str:
     return snake_to_camel(s)
+
 
 def convert_json_to_camel(obj: Union[object, dict, list]) -> Union[object, dict, list]:
     if isinstance(obj, dict):
@@ -65,7 +71,7 @@ def pydantic_to_sqlalchemy_financial_plan(pydantic_plan, sqlalchemy_plan_class, 
     data = pydantic_plan.model_dump(exclude=exclude_fields)
     
     sqlalchemy_fields = {'user_id', 'name', 'description', 'start_age', 'retirement_age', 
-                         'plan_end_age', 'current_portfolio_value', 'portfolio_target_value'}
+                         'plan_end_age', 'plan_start_date', 'current_portfolio_value', 'portfolio_target_value'}
     data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
     
     return sqlalchemy_plan_class(**data)
@@ -84,9 +90,9 @@ def pydantic_to_sqlalchemy_cashflow(pydantic_cashflow, sqlalchemy_cashflow_class
 
 
 def sqlalchemy_to_pydantic_financial_plan(sqlalchemy_plan, pydantic_plan_class):
-    return pydantic_plan_class.model_validate(sqlalchemy_plan)
+    return pydantic_plan_class.model_validate(sqlalchemy_plan, from_attributes=True)
 
 
 def sqlalchemy_to_pydantic_cashflow(sqlalchemy_cashflow, pydantic_cashflow_class):
-    return pydantic_cashflow_class.model_validate(sqlalchemy_cashflow)
+    return pydantic_cashflow_class.model_validate(sqlalchemy_cashflow, from_attributes=True)
 

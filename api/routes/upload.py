@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from services import ParserService
 from schemas.base_schemas import AdviserConfig
 from api.schemas.responses import UploadResponse
-from api.dependencies import get_db
+from api.dependencies import get_db, get_current_active_user
 
 router = APIRouter()
 
@@ -62,7 +62,7 @@ async def upload_file(
         filepath.write_bytes(contents)
         
         # TODO: Replace user_id=1 with actual authenticated user
-        parser = ParserService(user_id=1, filepath=str(filepath))
+        parser = ParserService(user_id=get_current_active_user().id, filepath=str(filepath), db=db)
         profile, cash_flows = parser.extract_data()
         
         adviser_config = AdviserConfig()
