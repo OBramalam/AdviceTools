@@ -74,8 +74,8 @@ async def register(
                 detail=f"Database error: {str(e)}"
             )
         
-        access_token = create_access_token(data={"sub": user.id, "email": user.email})
-        refresh_token_str = create_refresh_token(data={"sub": user.id})
+        access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+        refresh_token_str = create_refresh_token(data={"sub": str(user.id)})
         
         refresh_token = RefreshToken(
             user_id=user.id,
@@ -125,8 +125,10 @@ async def login(
     user.last_login = datetime.utcnow()
     db.commit()
     
-    access_token = create_access_token(data={"sub": user.id, "email": user.email})
-    refresh_token_str = create_refresh_token(data={"sub": user.id})
+    print(f"[AUTH] Login successful for user_id={user.id}, email={user.email}")
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+    refresh_token_str = create_refresh_token(data={"sub": str(user.id)})
+    print(f"[AUTH] Tokens created: access_token (first 20 chars: {access_token[:20]}...), refresh_token (first 20 chars: {refresh_token_str[:20]}...)")
     
     refresh_token = RefreshToken(
         user_id=user.id,
@@ -152,17 +154,22 @@ async def refresh_token(
     db: Session = Depends(get_db)
 ):
     """Refresh access token using refresh token."""
+    print(f"[AUTH] Refresh token request received (token first 20 chars: {request.refresh_token[:20]}...)")
     try:
         payload = decode_token(request.refresh_token)
-        user_id: int = payload.get("sub")
+        user_id: int = int(payload.get("sub"))
         token_type: str = payload.get("type")
         
+        print(f"[AUTH] Refresh token decoded: user_id={user_id}, token_type={token_type}")
+        
         if user_id is None or token_type != "refresh":
+            print(f"[AUTH] Refresh token validation failed: user_id={user_id}, token_type={token_type} (expected 'refresh')")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
             )
-    except ValueError:
+    except ValueError as e:
+        print(f"[AUTH] ValueError during refresh token decode: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
@@ -187,7 +194,7 @@ async def refresh_token(
             detail="User not found or inactive"
         )
     
-    access_token = create_access_token(data={"sub": user.id, "email": user.email})
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
     
     return TokenResponse(
         access_token=access_token,

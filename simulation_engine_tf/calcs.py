@@ -11,7 +11,7 @@ def cholesky_bootstrap_returns_tf(n: int, s: int, cov_matrix: tf.Tensor, exp_ret
 
     Returns: [n, s, k] simulated returns
     """
-    # NOTE: Difference vs numpy: we use tf.random.Generator for determinism in-graph.
+    # NOTE: use tf.random.Generator for determinism in-graph.
     dtype = tf.float64
     cov_matrix = tf.convert_to_tensor(cov_matrix, dtype=dtype)
     exp_ret = tf.reshape(tf.convert_to_tensor(exp_ret, dtype=dtype), [-1])

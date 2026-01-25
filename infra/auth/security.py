@@ -58,6 +58,7 @@ def decode_token(token: str) -> Dict[str, Any]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as e:
+        print(f"[SECURITY] JWT Error decoding token: {type(e).__name__}: {str(e)}")
         raise ValueError("Invalid token")
 

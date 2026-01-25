@@ -1,7 +1,8 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 from common.enums import CashFlowType
+from simulation_engine.common.types import SimulationPortfolioWeights, ExpectedReturns, AssetCosts
 
 
 class Profile(BaseModel):
@@ -34,6 +35,15 @@ class AdviserConfig(BaseModel):
     asset_costs: dict[str, float] = Field(default={"stocks": 0.001, "bonds": 0.001, "cash": 0.001})
     expected_returns: dict[str, float] = Field(default={"stocks": 0.08, "bonds": 0.04, "cash": 0.02})
     number_of_simulations: int = Field(default=5000)
+
+
+class PortfolioConfig(BaseModel):
+    name: Optional[str] = Field(None, description="Name of the portfolio")
+    weights: List[SimulationPortfolioWeights] = Field(description="Weights of the portfolio")
+    expected_returns: ExpectedReturns = Field(description="Expected returns of the portfolio")
+    asset_costs: AssetCosts = Field(description="Asset costs of the portfolio")
+    initial_wealth_allocation: float = 1.0
+    cashflow_allocation: float = 1.0
 
 
 class FinancialPlan(BaseModel):

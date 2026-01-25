@@ -23,7 +23,6 @@ from infra.database.models.user import User
 
 router = APIRouter()
 
-# Initialize chat service (singleton pattern)
 _chat_service: ChatService = None
 
 
@@ -40,11 +39,7 @@ async def send_chat_message(
     request: ChatMessageRequest,
     current_user: User = Depends(get_current_active_user)
 ):
-    """
-    Send a chat message and stream the assistant's response.
-    
-    Returns a Server-Sent Events (SSE) stream of the response chunks.
-    """
+
     if not request.message or not request.message.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -54,7 +49,6 @@ async def send_chat_message(
     chat_service = get_chat_service()
     
     def generate_stream() -> Generator[str, None, None]:
-        """Generator function that yields SSE-formatted chunks."""
         try:
             for chunk in chat_service.send_message(current_user.id, request.message):
                 # Format as Server-Sent Events
@@ -108,11 +102,6 @@ async def export_chat(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Export chat history as a text file.
-    
-    Optionally trigger the parser to extract data and create a financial plan.
-    """
     chat_service = get_chat_service()
     
     try:

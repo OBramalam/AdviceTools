@@ -1,11 +1,13 @@
 from datetime import date
 import datetime
 from dateutil.relativedelta import relativedelta
-from typing import List
+from typing import List, Optional
+from sqlalchemy.orm import Session
 from schemas import FinancialPlan, CashFlow, AdviserConfig
-from common.utils import to_annual, convert_json_to_snake
+from common.utils import to_annual, convert_json_to_snake, sqlalchemy_to_pydantic_cashflow
 from simulation_engine.commands import RunSimulationCommand
-from simulation_engine.common.types import CashFlow, SimulationPortfolioWeights, ExpectedReturns, AssetCosts
+from simulation_engine.common.types import CashFlow as SimulationCashFlow
+from simulation_engine.common.types import SimulationPortfolioWeights, ExpectedReturns, AssetCosts
 from simulation_engine.common.enums import SimulationType, SimulationStepType, InterpolationMethod
 from .risk_indicator_service import calculate_risk_indicator
 
@@ -13,13 +15,31 @@ class SimulationService:
     def __init__(
         self, 
         financial_plan: FinancialPlan, 
-        cash_flows: List[CashFlow], 
-        adviser_config: AdviserConfig,
-        weights: List[SimulationPortfolioWeights] = None,
+        cash_flows: Optional[List[CashFlow]] = None,
+        adviser_config: Optional[AdviserConfig] = None,
+        weights: Optional[List[SimulationPortfolioWeights]] = None,
+        db: Optional[Session] = None,
     ):
         self.financial_plan = financial_plan
-        self.cash_flows = cash_flows
-        self.adviser_config = adviser_config
+        self.db = db
+        
+        # Fetch cashflows from database if not provided
+        if cash_flows is None:
+            if db is None:
+                raise ValueError("Database session required when cash_flows is not provided")
+            if financial_plan.id is None:
+                raise ValueError("Financial plan must have an id to fetch cashflows from database")
+            self.cash_flows = self._get_cashflows_from_db(financial_plan.id, db)
+        else:
+            self.cash_flows = cash_flows
+        
+        # Use default adviser_config if not provided
+        # TODO: In the future, fetch from database when adviser_config table is implemented
+        if adviser_config is None:
+            self.adviser_config = AdviserConfig()  # Uses defaults from schema
+        else:
+            self.adviser_config = adviser_config
+        
         self.weights = weights if weights else None
 
     def simulate(self):
@@ -63,7 +83,7 @@ class SimulationService:
         plan_start_year: int,
         plan_end_year: int,
         step_size: str = "annual"
-        ) -> List[CashFlow]:
+        ) -> List[SimulationCashFlow]:
 
         cf_events = {}
 
@@ -82,15 +102,15 @@ class SimulationService:
         end_step = plan_end_year - plan_start_year
         cf_events = {k: v for k, v in cf_events.items() if 0 <= k <= end_step}
 
-        cashflows: List[CashFlow] = []
+        cashflows: List[SimulationCashFlow] = []
         running = 0.0
 
         for step in sorted(cf_events.keys()):
             running += cf_events[step]
-            cashflows.append(CashFlow(step=float(step), value=running))
+            cashflows.append(SimulationCashFlow(step=float(step), value=running))
 
         if not cashflows:
-            cashflows = [CashFlow(step=0.0, value=0.0)]
+            cashflows = [SimulationCashFlow(step=0.0, value=0.0)]
 
         return cashflows
 
@@ -133,3 +153,27 @@ class SimulationService:
             cash=self.adviser_config.asset_costs['cash']
         )
         return asset_costs
+
+    def _get_cashflows_from_db(self, plan_id: int, db: Session) -> List[CashFlow]:
+        """Fetch cashflows for a financial plan from the database."""
+        from infra.database.models.cashflow import CashFlow as DBCashFlow
+        
+        db_cashflows = db.query(DBCashFlow).filter(DBCashFlow.plan_id == plan_id).all()
+        return [sqlalchemy_to_pydantic_cashflow(cf, CashFlow) for cf in db_cashflows]
+    
+    def _get_adviser_config_from_db(self, plan_id: int, db: Session) -> AdviserConfig:
+        """
+        Fetch adviser config for a financial plan from the database.
+        
+        TODO: Implement when adviser_config table is added to the database.
+        For now, returns default AdviserConfig.
+        """
+        # Future implementation:
+        # from infra.database.models.adviser_config import AdviserConfig as DBAdviserConfig
+        # db_config = db.query(DBAdviserConfig).filter(DBAdviserConfig.plan_id == plan_id).first()
+        # if db_config:
+        #     return sqlalchemy_to_pydantic_adviser_config(db_config, AdviserConfig)
+        # else:
+        #     return AdviserConfig()  # Use defaults
+        
+        return AdviserConfig()  # Use defaults for now
