@@ -263,7 +263,6 @@ Authorization: Bearer <access_token>
     "retirement_age": 65,
     "plan_end_age": 100,
     "plan_start_date": "2024-01-01T00:00:00",
-    "current_portfolio_value": 50000.0,
     "portfolio_target_value": 1000000.0
   }
 ]
@@ -293,7 +292,6 @@ Authorization: Bearer <access_token>
   "retirement_age": 65,
   "plan_end_age": 100,
   "plan_start_date": "2024-01-01T00:00:00",
-  "current_portfolio_value": 50000.0,
   "portfolio_target_value": 1000000.0
 }
 ```
@@ -323,7 +321,6 @@ Authorization: Bearer <access_token>
   "retirement_age": 65,
   "plan_end_age": 100,
   "plan_start_date": "2024-01-01T00:00:00",
-  "current_portfolio_value": 50000.0,
   "portfolio_target_value": 1000000.0
 }
 ```
@@ -341,7 +338,6 @@ Authorization: Bearer <access_token>
   "retirement_age": 65,
   "plan_end_age": 100,
   "plan_start_date": "2024-01-01T00:00:00",
-  "current_portfolio_value": 50000.0,
   "portfolio_target_value": 1000000.0
 }
 ```
@@ -368,7 +364,6 @@ Authorization: Bearer <access_token>
   "retirement_age": 65,
   "plan_end_age": 100,
   "plan_start_date": "2024-01-01T00:00:00",
-  "current_portfolio_value": 60000.0,
   "portfolio_target_value": 1200000.0
 }
 ```
@@ -386,7 +381,6 @@ Authorization: Bearer <access_token>
   "retirement_age": 65,
   "plan_end_age": 100,
   "plan_start_date": "2024-01-01T00:00:00",
-  "current_portfolio_value": 60000.0,
   "portfolio_target_value": 1200000.0
 }
 ```
@@ -588,6 +582,330 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 - `404 Not Found`: Cash flow not found or doesn't belong to user's plan
+
+---
+
+### Portfolio Endpoints
+
+All portfolio endpoints require authentication.
+
+Portfolios define asset allocation strategies for financial plans. Each portfolio can have different expected returns, asset costs, and allocation weights. When portfolios are configured for a financial plan, the simulation service will automatically use them.
+
+#### List Portfolios for a Plan
+
+Get all portfolios for a specific financial plan.
+
+**Endpoint:** `GET /api/portfolios/plan/{plan_id}`
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": 1,
+    "plan_id": 1,
+    "name": "Conservative Portfolio",
+    "weights": [
+      {
+        "step": 0.0,
+        "stocks": 0.3,
+        "bonds": 0.7,
+        "cash": 0.0
+      }
+    ],
+    "expected_returns": {
+      "stocks": 0.06,
+      "bonds": 0.03,
+      "cash": 0.02
+    },
+    "asset_costs": {
+      "stocks": 0.001,
+      "bonds": 0.001,
+      "cash": 0.001
+    },
+    "initial_portfolio_value": 48000.0,
+    "cashflow_allocation": 0.4
+  },
+  {
+    "id": 2,
+    "plan_id": 1,
+    "name": "Aggressive Portfolio",
+    "weights": [
+      {
+        "step": 0.0,
+        "stocks": 0.9,
+        "bonds": 0.1,
+        "cash": 0.0
+      }
+    ],
+    "expected_returns": {
+      "stocks": 0.10,
+      "bonds": 0.04,
+      "cash": null
+    },
+    "asset_costs": {
+      "stocks": 0.0015,
+      "bonds": 0.001,
+      "cash": 0.001
+    },
+    "initial_portfolio_value": 72000.0,
+    "cashflow_allocation": 0.6
+  }
+]
+```
+
+**Note:** 
+- `id` is the database primary key (auto-generated, optional on create)
+- `plan_id` is set from the URL path on create
+- `initial_portfolio_value` is the nominal dollar amount allocated to this portfolio
+- `cashflow_allocation` must sum to 1.0 across all portfolios for a plan
+- `weights` is an array of asset allocation weights at different time steps
+- `expected_returns` and `asset_costs` can have `null` values for optional fields (e.g., `cash`)
+
+**Error Responses:**
+- `404 Not Found`: Financial plan not found or doesn't belong to user
+
+---
+
+#### Get Portfolio
+
+Get a specific portfolio by ID.
+
+**Endpoint:** `GET /api/portfolios/{portfolio_id}`
+
+**Note:** `{portfolio_id}` is the integer database ID of the portfolio.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "plan_id": 1,
+  "name": "Conservative Portfolio",
+  "weights": [
+    {
+      "step": 0.0,
+      "stocks": 0.3,
+      "bonds": 0.7,
+      "cash": 0.0
+    }
+  ],
+  "expected_returns": {
+    "stocks": 0.06,
+    "bonds": 0.03,
+    "cash": 0.02
+  },
+  "asset_costs": {
+    "stocks": 0.001,
+    "bonds": 0.001,
+    "cash": 0.001
+  },
+  "initial_portfolio_value": 48000.0,
+  "cashflow_allocation": 0.4
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Portfolio not found or doesn't belong to user's plan
+
+---
+
+#### Create Portfolio
+
+Create a new portfolio for a financial plan.
+
+**Endpoint:** `POST /api/portfolios/plan/{plan_id}`
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "Conservative Portfolio",
+  "weights": [
+    {
+      "step": 0.0,
+      "stocks": 0.3,
+      "bonds": 0.7
+      // cash is automatically calculated as 1 - 0.3 - 0.7 = 0.0
+    }
+  ],
+  
+  // Alternative example: If you want to explicitly specify all three allocations
+  // (Note: cash is still computed, but you can verify it matches your desired value)
+  // "weights": [
+  //   {
+  //     "step": 0.0,
+  //     "stocks": 0.5,
+  //     "bonds": 0.3
+  //     // cash will be calculated as 1 - 0.5 - 0.3 = 0.2
+  //   }
+  // ],
+  "expected_returns": {
+    "stocks": 0.06,
+    "bonds": 0.03,
+    "cash": 0.02
+  },
+  "asset_costs": {
+    "stocks": 0.001,
+    "bonds": 0.001,
+    "cash": 0.001
+  },
+  "initial_portfolio_value": 48000.0,
+  "cashflow_allocation": 0.4
+}
+```
+
+**Note:** 
+- `id` is optional (auto-generated on create)
+- `plan_id` is set from the URL path
+- `weights` must sum to 1.0 for each entry
+  - You provide `stocks` and `bonds` in the request
+  - `cash` is automatically calculated as `1 - stocks - bonds` and included in the response
+  - If you want a specific cash allocation, set `stocks` and `bonds` such that `1 - stocks - bonds = desired_cash`
+- `initial_portfolio_value` is the nominal dollar amount allocated to this portfolio
+- `cashflow_allocation` must sum to 1.0 across all portfolios for the plan
+
+**Response:** `201 Created`
+```json
+{
+  "id": 1,
+  "plan_id": 1,
+  "name": "Conservative Portfolio",
+  "weights": [
+    {
+      "step": 0.0,
+      "stocks": 0.3,
+      "bonds": 0.7,
+      "cash": 0.0
+    }
+  ],
+  "expected_returns": {
+    "stocks": 0.06,
+    "bonds": 0.03,
+    "cash": 0.02
+  },
+  "asset_costs": {
+    "stocks": 0.001,
+    "bonds": 0.001,
+    "cash": 0.001
+  },
+  "initial_portfolio_value": 48000.0,
+  "cashflow_allocation": 0.4
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Financial plan not found or doesn't belong to user
+
+---
+
+#### Update Portfolio
+
+Update an existing portfolio.
+
+**Endpoint:** `PUT /api/portfolios/{portfolio_id}`
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "Updated Conservative Portfolio",
+  "weights": [
+    {
+      "step": 0.0,
+      "stocks": 0.35,
+      "bonds": 0.65
+    }
+  ],
+  "expected_returns": {
+    "stocks": 0.065,
+    "bonds": 0.035,
+    "cash": 0.02
+  },
+  "asset_costs": {
+    "stocks": 0.001,
+    "bonds": 0.001,
+    "cash": 0.001
+  },
+    "initial_portfolio_value": 60000.0,
+  "cashflow_allocation": 0.5
+}
+```
+
+**Note:** 
+- `id` cannot be changed (it's the database primary key)
+- `plan_id` cannot be changed
+- All other fields can be updated
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "plan_id": 1,
+  "name": "Updated Conservative Portfolio",
+  "weights": [
+    {
+      "step": 0.0,
+      "stocks": 0.35,
+      "bonds": 0.65,
+      "cash": 0.0
+    }
+  ],
+  "expected_returns": {
+    "stocks": 0.065,
+    "bonds": 0.035,
+    "cash": 0.02
+  },
+  "asset_costs": {
+    "stocks": 0.001,
+    "bonds": 0.001,
+    "cash": 0.001
+  },
+    "initial_portfolio_value": 60000.0,
+  "cashflow_allocation": 0.5
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Portfolio not found or doesn't belong to user's plan
+
+---
+
+#### Delete Portfolio
+
+Delete a portfolio.
+
+**Endpoint:** `DELETE /api/portfolios/{portfolio_id}`
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `204 No Content`
+
+**Error Responses:**
+- `404 Not Found`: Portfolio not found or doesn't belong to user's plan
+
+**Note:** After deleting portfolios, ensure that remaining portfolios' `cashflow_allocation` still sums to 1.0, or the simulation may fail validation.
 
 ---
 
@@ -815,7 +1133,6 @@ file: <file>
     "retirement_age": 65,
     "plan_end_age": 100,
     "plan_start_date": "2024-01-01T00:00:00",
-    "current_portfolio_value": 50000.0,
     "portfolio_target_value": 0.0
   },
   "cash_flows": [
@@ -898,7 +1215,9 @@ You can optionally override cash flows and adviser config if needed:
 
 2. **Cash Flows**: If `cash_flows` is not provided in the request, the system automatically fetches all cash flows associated with the financial plan from the database.
 
-3. **Adviser Config**: If `adviser_config` is not provided, the system uses default values:
+3. **Portfolios**: The system automatically fetches all portfolios associated with the financial plan from the database. Portfolios are always used for simulation. If no portfolios exist for the plan, you must create at least one portfolio before running a simulation.
+
+4. **Adviser Config**: If `adviser_config` is not provided, the system uses default values:
    - `risk_allocation_map`: `{1: 0.3, 2: 0.5, 3: 0.6, 4: 0.8, 5: 0.9}`
    - `inflation`: `0.02`
    - `asset_costs`: `{"stocks": 0.001, "bonds": 0.001, "cash": 0.001}`
@@ -906,14 +1225,76 @@ You can optionally override cash flows and adviser config if needed:
    - `number_of_simulations`: `5000`
 
 **Response:** `200 OK`
+
+Always returns a `MultiPortfolioSimulationResultDTO` for consistent structure:
+
 ```json
 {
   "success": true,
   "result": {
-    // Simulation results (structure depends on simulation engine)
+    "aggregated": {
+      "real": {
+        "simulation_data": [[...], [...]],  // 2D array: [num_simulations][num_timesteps]
+        "percentiles": {
+          "5": [...],
+          "25": [...],
+          "50": [...],
+          "75": [...],
+          "95": [...]
+        },
+        "mean": [...],
+        "final_mean": 1234567.89,
+        "final_median": 987654.32,
+        "final_std": 234567.89,
+        "final_min": 0.0,
+        "final_max": 5000000.0
+      },
+      "nominal": {
+        "simulation_data": [[...], [...]],
+        "percentiles": {
+          "5": [...],
+          "25": [...],
+          "50": [...],
+          "75": [...],
+          "95": [...]
+        },
+        "mean": [...],
+        "final_mean": 2345678.90,
+        "final_median": 1876543.21,
+        "final_std": 345678.90,
+        "final_min": 0.0,
+        "final_max": 8000000.0
+      },
+      "destitution": [0.0, 0.001, 0.002, ...],
+      "timesteps": [0, 1, 2, 3, ...],
+      "simulation_time": 0.123,
+      "simulation_time_per_timestep": 0.002,
+      "simulation_time_per_path": 0.0001,
+      "total_parameters": 354000,
+      "destitution_area": 0.0025
+    },
+    "individual_portfolios": {
+      "default": {
+        // For single portfolio: same structure as aggregated above, key is "default"
+        // For multi-portfolio: separate result for each portfolio, keyed by portfolio database ID (as string)
+        "real": { ... },
+        "nominal": { ... },
+        "destitution": [...],
+        "timesteps": [...],
+        "simulation_time": 0.123,
+        "simulation_time_per_timestep": 0.002,
+        "simulation_time_per_path": 0.0001,
+        "total_parameters": 354000,
+        "destitution_area": 0.0025
+      }
+    }
   }
 }
 ```
+
+**Response Structure:**
+- **Single portfolio** (default): `individual_portfolios` contains one entry with key `"default"`, and `aggregated` is identical to this single portfolio result
+- **Multi-portfolio**: `individual_portfolios` contains separate results for each portfolio (keyed by portfolio database ID as string), and `aggregated` represents the combined wealth across all portfolios
 
 **Error Responses:**
 
@@ -933,7 +1314,13 @@ You can optionally override cash flows and adviser config if needed:
 }
 ```
 
-**Note:** The endpoint requires authentication and automatically verifies that the financial plan belongs to the authenticated user. Cash flows are fetched from the database, so ensure the financial plan has associated cash flows created via the Cash Flows endpoints.
+**Note:** 
+- The endpoint requires authentication and automatically verifies that the financial plan belongs to the authenticated user.
+- Cash flows are fetched from the database, so ensure the financial plan has associated cash flows created via the Cash Flows endpoints.
+- Portfolios are automatically fetched from the database. If portfolios exist for the financial plan, they will be used for the simulation. Create portfolios via the Portfolio endpoints.
+- The response always uses the same structure (`MultiPortfolioSimulationResultDTO`) for consistency:
+  - **Single portfolio** (default): `individual_portfolios` contains one entry with key `"default"`, and `aggregated` is identical to this result
+  - **Multi-portfolio**: `individual_portfolios` contains separate results for each portfolio (keyed by portfolio database ID as string), and `aggregated` represents the combined wealth across all portfolios
 
 ---
 
@@ -964,7 +1351,6 @@ interface FinancialPlan {
   retirement_age: number;
   plan_end_age: number;
   plan_start_date: string; // ISO 8601 datetime
-  current_portfolio_value: number;
   portfolio_target_value: number;
 }
 ```
@@ -982,6 +1368,52 @@ interface CashFlow {
   end_date?: string; // ISO 8601 datetime, optional
 }
 ```
+
+### PortfolioConfig
+
+```typescript
+interface SimulationPortfolioWeights {
+  step: number; // Time step (year) for this weight configuration
+  stocks: number; // Stock allocation (0.0 to 1.0)
+  bonds: number; // Bond allocation (0.0 to 1.0)
+  cash: number; // Cash allocation (always calculated as 1 - stocks - bonds, returned in response but not required in request)
+}
+
+interface ExpectedReturns {
+  stocks?: number; // Expected return for stocks (0.0 to 1.0, optional)
+  bonds?: number; // Expected return for bonds (0.0 to 1.0, optional)
+  cash?: number | null; // Expected return for cash (0.0 to 1.0, optional)
+}
+
+interface AssetCosts {
+  stocks: number; // Asset cost for stocks (0.0 to 1.0)
+  bonds: number; // Asset cost for bonds (0.0 to 1.0)
+  cash: number; // Asset cost for cash (0.0 to 1.0)
+}
+
+interface PortfolioConfig {
+  id?: number; // Optional, auto-generated database primary key
+  plan_id: number; // Financial plan this portfolio belongs to (set from URL on create)
+  name?: string; // Optional name for the portfolio
+  weights: SimulationPortfolioWeights[]; // Array of weight configurations over time
+  expected_returns: ExpectedReturns; // Expected returns for each asset class
+  asset_costs: AssetCosts; // Asset costs for each asset class
+  initial_portfolio_value: number; // Nominal dollar value of initial wealth allocated to this portfolio
+  cashflow_allocation: number; // Fraction of cashflows (must sum to 1.0 across all portfolios)
+}
+```
+
+**Note:** 
+- `id` is the database primary key (auto-generated, optional on create)
+- `plan_id` is set from the URL path when creating portfolios
+- `initial_portfolio_value` is the nominal dollar amount allocated to this portfolio (not a fraction)
+- `cashflow_allocation` must sum to 1.0 across all portfolios for a plan
+- Each entry in `weights` must have `stocks + bonds + cash = 1.0`
+  - You provide `stocks` and `bonds` in the request
+  - `cash` is automatically calculated as `1 - stocks - bonds` and included in the response
+  - If you want a specific cash allocation, set `stocks` and `bonds` such that `1 - stocks - bonds = desired_cash`
+- When portfolios are configured for a financial plan, the simulation service automatically uses them
+- At least one portfolio must exist for a financial plan before running a simulation
 
 ### ChatMessage
 
@@ -1021,11 +1453,57 @@ interface SimulationRequest {
 ```typescript
 interface SimulationResponse {
   success: boolean;
-  result?: any; // Simulation results (structure depends on simulation engine)
+  result?: MultiPortfolioSimulationResultDTO; // Always returns consistent structure
   error?: string; // Error message if simulation failed
   traceback?: string; // Full traceback if available (for debugging)
 }
 ```
+
+### SimulationResultDTO
+
+```typescript
+interface SimulationDataDTO {
+  simulation_data: number[][]; // 2D array: [num_simulations][num_timesteps]
+  percentiles: {
+    5: number[];
+    25: number[];
+    50: number[];
+    75: number[];
+    95: number[];
+  };
+  mean: number[]; // Mean wealth at each timestep
+  final_mean: number; // Mean wealth at final timestep
+  final_median: number; // Median wealth at final timestep
+  final_std: number; // Standard deviation of final wealth
+  final_min: number; // Minimum final wealth across all simulations
+  final_max: number; // Maximum final wealth across all simulations
+}
+
+interface SimulationResultDTO {
+  real: SimulationDataDTO; // Inflation-adjusted wealth values
+  nominal: SimulationDataDTO; // Current dollar values (not inflation-adjusted)
+  destitution: number[]; // Probability of destitution at each timestep (0.0 to 1.0)
+  timesteps: number[]; // Time points (years) for each data point
+  simulation_time: number; // Total execution time in seconds
+  simulation_time_per_timestep: number; // Average time per timestep
+  simulation_time_per_path: number; // Average time per simulation path
+  total_parameters: number; // Total number of parameters computed
+  destitution_area: number; // Time-weighted average destitution risk
+}
+```
+
+### MultiPortfolioSimulationResultDTO
+
+```typescript
+interface MultiPortfolioSimulationResultDTO {
+  aggregated: SimulationResultDTO; // Combined results across all portfolios
+  individual_portfolios: Record<string, SimulationResultDTO>; // Results for each portfolio, keyed by portfolio database ID (as string)
+}
+```
+
+**Note:** The response always uses `MultiPortfolioSimulationResultDTO` for consistency:
+- **Single portfolio**: `individual_portfolios` contains one entry with key `"default"`, and `aggregated` is identical to this result
+- **Multi-portfolio**: `individual_portfolios` contains separate results for each portfolio (keyed by portfolio database ID as string), and `aggregated` represents the combined wealth across all portfolios
 
 ---
 
@@ -1241,7 +1719,6 @@ const plan = await createPlan({
   retirement_age: 65,
   plan_end_age: 100,
   plan_start_date: "2024-01-01T00:00:00",
-  current_portfolio_value: 50000.0,
   portfolio_target_value: 1000000.0
 });
 

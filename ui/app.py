@@ -54,22 +54,24 @@ def upload_file():
         
         try:
             # Parse the conversation
-            parser = ParserService(user_id=1, filepath=filepath)
-            profile, cash_flows = parser.extract_data()
+            parser = ParserService(user_id=1, filepath=filepath, db=None)  # UI doesn't use DB
+            financial_plan, cash_flows, portfolios = parser.extract_data()
             
             
             adviser_config = AdviserConfig()
 
             session_data = {
-                'profile': profile.model_dump(mode='json'),
+                'financial_plan': financial_plan.model_dump(mode='json'),
                 'cash_flows': [cf.model_dump(mode='json') for cf in cash_flows],
+                'portfolios': [p.model_dump(mode='json') for p in portfolios],
                 'adviser_config': adviser_config.model_dump(mode='json'),
                 'filepath': filepath
             }
             
             return render_template('simulation.html', 
-                                profile=profile, 
+                                financial_plan=financial_plan, 
                                 cash_flows=cash_flows,
+                                portfolios=portfolios,
                                 session_data=json.dumps(session_data))
             
         except Exception as e:

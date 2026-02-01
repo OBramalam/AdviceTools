@@ -133,7 +133,7 @@ async def export_chat(
                     filepath=str(filepath),
                     db=db
                 )
-                financial_plan, cash_flows = parser.extract_data()
+                financial_plan, cash_flows, portfolios = parser.extract_data()
                 
                 return ExportChatResponse(
                     success=True,

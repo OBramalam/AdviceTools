@@ -1,11 +1,13 @@
 from llama_cloud_services import LlamaExtract
 from dotenv import load_dotenv
 from sqlalchemy.orm.session import Session
-from schemas import ExtractionSchema, FinancialPlan, CashFlow
-from common.utils import age_to_date, pydantic_to_sqlalchemy_financial_plan, pydantic_to_sqlalchemy_cashflow, sqlalchemy_to_pydantic_financial_plan, sqlalchemy_to_pydantic_cashflow
+from schemas import ExtractionSchema, FinancialPlan, CashFlow, PortfolioConfig, ExpectedReturns, AssetCosts
+from simulation_engine.common.types import SimulationPortfolioWeights
+from common.utils import age_to_date, pydantic_to_sqlalchemy_financial_plan, pydantic_to_sqlalchemy_cashflow, sqlalchemy_to_pydantic_financial_plan, sqlalchemy_to_pydantic_cashflow, pydantic_to_sqlalchemy_portfolio, sqlalchemy_to_pydantic_portfolio
 from datetime import datetime
 from infra.database.models.financial_plan import FinancialPlan as DBFinancialPlan
 from infra.database.models.cashflow import CashFlow as DBCashFlow
+from infra.database.models.portfolio import Portfolio as DBPortfolio
 
 
 class ParserService:
@@ -19,11 +21,11 @@ class ParserService:
 
     def extract_data(self):
         # TODO: Create agent if it doesn't already exist
-        agent = self.extractor.get_agent(name='conversation_parser')
+        agent = self.extractor.get_agent(name='advice_parser')
         data = agent.extract(self.filepath).data
-        financial_plan, cashflows = self._build_data_objects(data)
+        financial_plan, cashflows, portfolios = self._build_data_objects(data)
 
-        return financial_plan, cashflows
+        return financial_plan, cashflows, portfolios
 
     def _commit_plan_to_db(self, financial_plan):
         financial_plan = pydantic_to_sqlalchemy_financial_plan(financial_plan, DBFinancialPlan)
@@ -40,6 +42,14 @@ class ParserService:
             self.db.refresh(cashflow)
         return [sqlalchemy_to_pydantic_cashflow(cashflow, CashFlow) for cashflow in cashflows]
 
+    def _commit_portfolios_to_db(self, portfolios):
+        portfolios = [pydantic_to_sqlalchemy_portfolio(portfolio, DBPortfolio) for portfolio in portfolios]
+        self.db.add_all(portfolios)
+        self.db.commit()
+        for portfolio in portfolios:
+            self.db.refresh(portfolio)
+        return [sqlalchemy_to_pydantic_portfolio(portfolio, PortfolioConfig) for portfolio in portfolios]
+
     def _build_data_objects(self, data):
 
         financial_plan = FinancialPlan(
@@ -50,12 +60,23 @@ class ParserService:
             retirement_age=data['retirement_age'],
             plan_end_age=data['plan_end_age'],
             plan_start_date=data.get('plan_start_date', datetime.now()),
-            current_portfolio_value=data['current_portfolio_value'],
             portfolio_target_value=data.get('portfolio_target_value', 0),
         )
-
         financial_plan = self._commit_plan_to_db(financial_plan)
 
+        portfolios = []
+        for i in range(len(data['current_portfolio_value'])):
+            portfolios.append(
+                PortfolioConfig(
+                    plan_id=financial_plan.id,
+                    name="Default portfolio",
+                    weights=[SimulationPortfolioWeights(step=0.0, stocks=0.6)],
+                    expected_returns=ExpectedReturns(stocks=0.10, bonds=0.03, cash=0.02),
+                    asset_costs=AssetCosts(stocks=0.0015, bonds=0.001, cash=0.001),
+                    initial_portfolio_value=data['current_portfolio_value'][i],
+                    cashflow_allocation=1/len(data['current_portfolio_value']),
+            ))
+        
         incomes = [
             CashFlow(
                 plan_id=financial_plan.id,
@@ -82,9 +103,11 @@ class ParserService:
 
         cash_flows = incomes + expenses
 
+        
         cash_flows = self._commit_cashflows_to_db(cash_flows)
+        portfolios = self._commit_portfolios_to_db(portfolios)
 
-        return financial_plan, cash_flows
+        return financial_plan, cash_flows, portfolios
 
         # profile = Profile(
         #     id=self.user_id,

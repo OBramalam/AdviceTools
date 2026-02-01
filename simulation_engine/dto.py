@@ -1,5 +1,6 @@
 import pydantic
 import numpy as np
+from typing import Dict
 
 class AbstractDTO(pydantic.BaseModel):
     """
@@ -46,4 +47,10 @@ class SimulationResultDTO(AbstractDTO):
     simulation_time_per_path: float
     total_parameters: int
     destitution_area: float
+
+
+class MultiPortfolioSimulationResultDTO(AbstractDTO):
+    """Data Transfer Object for multi-portfolio simulation results."""
+    aggregated: SimulationResultDTO
+    individual_portfolios: Dict[str, SimulationResultDTO]
     

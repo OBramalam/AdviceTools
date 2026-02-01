@@ -37,31 +37,32 @@ class AdviserConfig(BaseModel):
     number_of_simulations: int = Field(default=5000)
 
 
-class PortfolioConfig(BaseModel):
-    name: Optional[str] = Field(None, description="Name of the portfolio")
-    weights: List[SimulationPortfolioWeights] = Field(description="Weights of the portfolio")
-    expected_returns: ExpectedReturns = Field(description="Expected returns of the portfolio")
-    asset_costs: AssetCosts = Field(description="Asset costs of the portfolio")
-    initial_wealth_allocation: float = 1.0
-    cashflow_allocation: float = 1.0
-
-
 class FinancialPlan(BaseModel):
     id: Optional[int] = Field(None, description="Unique id (auto-generated)")
-    user_id: int = Field(description="User who owns this financial plan")
+    user_id: Optional[int] = Field(None, description="User who owns this financial plan (required on create, optional on update)")
     name: str = Field(description="Name of the financial plan")
     description: str = Field(description="Description of the financial plan")
     start_age: int = Field(description="Age of the client")
     retirement_age: int = Field(description="Age the client would like to retire")
     plan_end_age: int = Field(description="Age the client would like to plan to")
     plan_start_date: datetime = Field(description="The date the client started planning")
-    current_portfolio_value: float = Field(description="The current value of the clients retirement/private wealth investments")
     portfolio_target_value: float = Field(description="The target value of the clients retirement/private wealth investments")
+
+
+class PortfolioConfig(BaseModel):
+    id: Optional[int] = Field(None, description="Unique database id (auto-generated)")
+    plan_id: Optional[int] = Field(None, description="Financial plan this portfolio belongs to (required on create, optional on update)")
+    name: Optional[str] = Field(None, description="Name of the portfolio")
+    weights: List[SimulationPortfolioWeights] = Field(description="Weights of the portfolio")
+    expected_returns: ExpectedReturns = Field(description="Expected returns of the portfolio")
+    asset_costs: AssetCosts = Field(description="Asset costs of the portfolio")
+    initial_portfolio_value: float = Field(ge=0.0, description="Nominal dollar value of initial wealth allocated to this portfolio")
+    cashflow_allocation: float = Field(ge=0.0, le=1.0, description="Fraction of total cashflows allocated to this portfolio (must sum to 1.0 across all portfolios)")
 
 
 class CashFlow(BaseModel):
     id: Optional[int] = Field(None, description="Unique id (auto-generated)")
-    plan_id: int = Field(description="Financial plan this cash flow belongs to")
+    plan_id: Optional[int] = Field(None, description="Financial plan this cash flow belongs to (required on create, optional on update)")
     name: str = Field(description="Name of the cash flow")
     description: str = Field(description="Description of the cash flow")
     amount: float = Field(description="Cash flow amount")

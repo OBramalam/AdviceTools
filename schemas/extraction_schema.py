@@ -8,7 +8,7 @@ class ExtractionSchema(BaseModel):
     age: float = Field(description="Age of the client")
     retirement_age: float = Field(description="Age the client would like to retire")
     plan_end_age: float = Field(description="Age the client would like to plan to")
-    current_portfolio_value: float = Field(description="The current value of the clients retirement/private wealth investments")
+    current_portfolio_value: list[float] = Field(description="The current value of the clients retirement/private wealth investments")
     income_source: list[str] = Field(description="Source of income")
     income_amount: list[float] = Field(description="Amount of income per month")
     income_start_age: list[int] = Field(description="The age the user will start recieving this source of income. If it is a current source of use current age.")

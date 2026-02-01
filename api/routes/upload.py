@@ -63,13 +63,13 @@ async def upload_file(
         
         # TODO: Replace user_id=1 with actual authenticated user
         parser = ParserService(user_id=get_current_active_user().id, filepath=str(filepath), db=db)
-        profile, cash_flows = parser.extract_data()
+        financial_plan, cash_flows, portfolios = parser.extract_data()
         
         adviser_config = AdviserConfig()
         
         return UploadResponse(
             success=True,
-            profile=profile,
+            financial_plan=financial_plan,
             cash_flows=cash_flows,
             adviser_config=adviser_config
         )

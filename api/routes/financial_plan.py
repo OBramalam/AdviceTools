@@ -85,7 +85,7 @@ async def update_financial_plan(
             detail="Financial plan not found"
         )
     
-    plan_data = plan.model_dump(exclude={'id'})
+    plan_data = plan.model_dump(exclude={'id', 'user_id'})
     plan_data['user_id'] = current_user.id
     
     for key, value in plan_data.items():

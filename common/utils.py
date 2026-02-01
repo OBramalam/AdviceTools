@@ -71,7 +71,7 @@ def pydantic_to_sqlalchemy_financial_plan(pydantic_plan, sqlalchemy_plan_class, 
     data = pydantic_plan.model_dump(exclude=exclude_fields)
     
     sqlalchemy_fields = {'user_id', 'name', 'description', 'start_age', 'retirement_age', 
-                         'plan_end_age', 'plan_start_date', 'current_portfolio_value', 'portfolio_target_value'}
+                         'plan_end_age', 'plan_start_date', 'portfolio_target_value'}
     data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
     
     return sqlalchemy_plan_class(**data)
@@ -95,4 +95,49 @@ def sqlalchemy_to_pydantic_financial_plan(sqlalchemy_plan, pydantic_plan_class):
 
 def sqlalchemy_to_pydantic_cashflow(sqlalchemy_cashflow, pydantic_cashflow_class):
     return pydantic_cashflow_class.model_validate(sqlalchemy_cashflow, from_attributes=True)
+
+
+def pydantic_to_sqlalchemy_portfolio(pydantic_portfolio, sqlalchemy_portfolio_class, exclude_fields: set = None):
+    if exclude_fields is None:
+        exclude_fields = {'id', 'created_at', 'updated_at'}
+    
+    data = pydantic_portfolio.model_dump(exclude=exclude_fields)
+    
+    # Convert nested Pydantic models to JSON
+    if 'weights' in data and data['weights']:
+        data['weights'] = [w.model_dump() if hasattr(w, 'model_dump') else w for w in data['weights']]
+    if 'expected_returns' in data and data['expected_returns']:
+        if hasattr(data['expected_returns'], 'model_dump'):
+            data['expected_returns'] = data['expected_returns'].model_dump()
+    if 'asset_costs' in data and data['asset_costs']:
+        if hasattr(data['asset_costs'], 'model_dump'):
+            data['asset_costs'] = data['asset_costs'].model_dump()
+    
+    sqlalchemy_fields = {'plan_id', 'name', 'weights', 'expected_returns', 
+                         'asset_costs', 'initial_portfolio_value', 'cashflow_allocation'}
+    data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
+    
+    return sqlalchemy_portfolio_class(**data)
+
+
+def sqlalchemy_to_pydantic_portfolio(sqlalchemy_portfolio, pydantic_portfolio_class):
+    """Convert SQLAlchemy Portfolio to Pydantic PortfolioConfig."""
+    from schemas.base_schemas import PortfolioConfig
+    from simulation_engine.common.types import SimulationPortfolioWeights, ExpectedReturns, AssetCosts
+    
+    # Convert JSON fields back to Pydantic models
+    weights = [SimulationPortfolioWeights.model_validate(w) for w in sqlalchemy_portfolio.weights]
+    expected_returns = ExpectedReturns.model_validate(sqlalchemy_portfolio.expected_returns)
+    asset_costs = AssetCosts.model_validate(sqlalchemy_portfolio.asset_costs)
+    
+    return PortfolioConfig(
+        id=sqlalchemy_portfolio.id,
+        plan_id=sqlalchemy_portfolio.plan_id,
+        name=sqlalchemy_portfolio.name,
+        weights=weights,
+        expected_returns=expected_returns,
+        asset_costs=asset_costs,
+        initial_portfolio_value=sqlalchemy_portfolio.initial_portfolio_value,
+        cashflow_allocation=sqlalchemy_portfolio.cashflow_allocation
+    )
 

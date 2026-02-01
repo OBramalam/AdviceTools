@@ -15,9 +15,9 @@ class FinancialPlan(Base):
     retirement_age = Column(Integer, nullable=False)
     plan_end_age = Column(Integer, nullable=False)
     plan_start_date = Column(DateTime, nullable=False)
-    current_portfolio_value = Column(Float, nullable=False)
     portfolio_target_value = Column(Float, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     
     cashflows = relationship("CashFlow", back_populates="financial_plan")
+    portfolios = relationship("Portfolio", back_populates="financial_plan")

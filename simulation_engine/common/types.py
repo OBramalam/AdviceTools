@@ -6,9 +6,9 @@ import numpy as np
 
 
 class ExpectedReturns(pydantic.BaseModel):
-    cash: float = pydantic.Field(default=None, ge=0.0, le=1.0)
-    stocks: float = pydantic.Field(default=None, ge=0.0, le=1.0)
-    bonds: float = pydantic.Field(default=None, ge=0.0, le=1.0)
+    cash: Optional[float] = pydantic.Field(default=None, ge=0.0, le=1.0)
+    stocks: Optional[float] = pydantic.Field(default=None, ge=0.0, le=1.0)
+    bonds: Optional[float] = pydantic.Field(default=None, ge=0.0, le=1.0)
 
     @pydantic.model_validator(mode="after")
     def check_returns(self) -> dict[str, float]:

@@ -1,14 +1,16 @@
 from datetime import date
 import datetime
 from dateutil.relativedelta import relativedelta
-from typing import List, Optional
+from typing import List, Optional, Dict
+import numpy as np
 from sqlalchemy.orm import Session
-from schemas import FinancialPlan, CashFlow, AdviserConfig
+from schemas import FinancialPlan, CashFlow, AdviserConfig, PortfolioConfig
 from common.utils import to_annual, convert_json_to_snake, sqlalchemy_to_pydantic_cashflow
 from simulation_engine.commands import RunSimulationCommand
 from simulation_engine.common.types import CashFlow as SimulationCashFlow
 from simulation_engine.common.types import SimulationPortfolioWeights, ExpectedReturns, AssetCosts
 from simulation_engine.common.enums import SimulationType, SimulationStepType, InterpolationMethod
+from simulation_engine.dto import SimulationResultDTO, SimulationDataDTO, MultiPortfolioSimulationResultDTO
 from .risk_indicator_service import calculate_risk_indicator
 
 class SimulationService:
@@ -18,6 +20,7 @@ class SimulationService:
         cash_flows: Optional[List[CashFlow]] = None,
         adviser_config: Optional[AdviserConfig] = None,
         weights: Optional[List[SimulationPortfolioWeights]] = None,
+        portfolios: Optional[List[PortfolioConfig]] = None,
         db: Optional[Session] = None,
     ):
         self.financial_plan = financial_plan
@@ -42,11 +45,57 @@ class SimulationService:
         
         self.weights = weights if weights else None
 
-    def simulate(self):
+        # Handle portfolios: if provided, use them; otherwise fetch from database or use default
+        if portfolios is not None:
+            self.portfolios = portfolios
+            self._validate_portfolio_allocations()
+        else:
+            # Try to fetch portfolios from database
+            if db is not None and financial_plan.id is not None:
+                self.portfolios = self._get_portfolios_from_db(financial_plan.id, db)
+                if self.portfolios:
+                    self._validate_portfolio_allocations()
+                else:
+                    # No portfolios in database, use default single portfolio behavior
+                    self.portfolios = None
+            else:
+                # No database access, use default single portfolio behavior
+                self.portfolios = None
+
+    def simulate(self) -> MultiPortfolioSimulationResultDTO:
+        """
+        Run simulation.
+        
+        Always returns MultiPortfolioSimulationResultDTO for consistent structure:
+        - For single portfolio: individual_portfolios contains one entry, aggregated is the same result
+        - For multi-portfolio: individual_portfolios contains all portfolios, aggregated is the combined result
+        
+        Returns:
+            MultiPortfolioSimulationResultDTO: Contains aggregated and individual portfolio results
+        """
+        # If portfolios are specified, run multi-portfolio simulation
+        if self.portfolios is not None:
+            return self._simulate_multiple_portfolios()
+        else:
+            # Single portfolio simulation: wrap in MultiPortfolioSimulationResultDTO
+            return self._simulate_single_portfolio()
+
+    def _simulate_single_portfolio(self) -> MultiPortfolioSimulationResultDTO:
+        """
+        Run simulation for a single portfolio (default behavior).
+        Returns MultiPortfolioSimulationResultDTO with one portfolio in individual_portfolios
+        and the same result as aggregated.
+        """
         data = self._build_simulation_data()
         command = RunSimulationCommand.model_validate(convert_json_to_snake(data))
         result = command.handle()
-        return result
+        
+        # Wrap single portfolio result in MultiPortfolioSimulationResultDTO
+        # Use "default" as the key for single portfolio simulations
+        return MultiPortfolioSimulationResultDTO(
+            aggregated=result,
+            individual_portfolios={"default": result}
+        )
 
     def _build_simulation_data(self):
         plan_start_date = self.financial_plan.plan_start_date
@@ -66,7 +115,7 @@ class SimulationService:
             "savings_rates": cash_flows,
             "oneoff_transactions": [],
             "inflation": self.adviser_config.inflation,
-            "initial_wealth": self.financial_plan.current_portfolio_value,
+            "initial_wealth": 0.0,  # TODO: This method should not be used - always create default portfolio instead
             "percentiles": [5, 25, 50, 75, 95],
             "simulation_type": SimulationType.CHOLESKY,
             "step_size": SimulationStepType.ANNUAL,
@@ -161,6 +210,18 @@ class SimulationService:
         db_cashflows = db.query(DBCashFlow).filter(DBCashFlow.plan_id == plan_id).all()
         return [sqlalchemy_to_pydantic_cashflow(cf, CashFlow) for cf in db_cashflows]
     
+    def _get_portfolios_from_db(self, plan_id: int, db: Session) -> Optional[List[PortfolioConfig]]:
+        """Fetch portfolios for a financial plan from the database."""
+        from infra.database.models.portfolio import Portfolio as DBPortfolio
+        from common.utils import sqlalchemy_to_pydantic_portfolio
+        
+        db_portfolios = db.query(DBPortfolio).filter(DBPortfolio.plan_id == plan_id).all()
+        
+        if not db_portfolios:
+            return None
+        
+        return [sqlalchemy_to_pydantic_portfolio(p, PortfolioConfig) for p in db_portfolios]
+    
     def _get_adviser_config_from_db(self, plan_id: int, db: Session) -> AdviserConfig:
         """
         Fetch adviser config for a financial plan from the database.
@@ -177,3 +238,176 @@ class SimulationService:
         #     return AdviserConfig()  # Use defaults
         
         return AdviserConfig()  # Use defaults for now
+    
+    def _validate_portfolio_allocations(self):
+        """Validate that portfolio values and cashflow allocations are valid."""
+        # Check that initial portfolio values are non-negative
+        for portfolio in self.portfolios:
+            if portfolio.initial_portfolio_value < 0:
+                portfolio_identifier = portfolio.id if portfolio.id else "new"
+                raise ValueError(
+                    f"Portfolio (id={portfolio_identifier}) has negative initial_portfolio_value: {portfolio.initial_portfolio_value}"
+                )
+        
+        # Validation: portfolio values must be non-negative
+        # (removed check against current_portfolio_value since that field no longer exists)
+        
+        # Validate cashflow allocations sum to 1.0
+        total_cashflow_allocation = sum(p.cashflow_allocation for p in self.portfolios)
+        if not abs(total_cashflow_allocation - 1.0) < 1e-6:
+            raise ValueError(
+                f"Cashflow allocations must sum to 1.0, got {total_cashflow_allocation}"
+            )
+    
+    def _simulate_multiple_portfolios(self) -> MultiPortfolioSimulationResultDTO:
+        """Run simulation for multiple portfolios and return both aggregated and individual results."""
+        plan_start_date = self.financial_plan.plan_start_date
+        plan_end_date = plan_start_date + relativedelta(years=int(self.financial_plan.plan_end_age)-int(self.financial_plan.start_age))
+        plan_start_year = plan_start_date.year
+        plan_end_year = plan_end_date.year
+        end_step = plan_end_year - plan_start_year
+        
+        # Build shared cashflows (will be allocated per portfolio)
+        shared_cash_flows = self._build_cash_flows(plan_start_year, plan_end_year)
+        
+        # Run simulation for each portfolio
+        portfolio_results: Dict[str, SimulationResultDTO] = {}
+        total_simulation_time = 0.0
+        
+        for portfolio in self.portfolios:
+            # Use portfolio-specific initial wealth directly (nominal dollar value)
+            portfolio_initial_wealth = portfolio.initial_portfolio_value
+            
+            # Calculate portfolio-specific cashflows (scaled by allocation)
+            portfolio_cash_flows = [
+                SimulationCashFlow(step=cf.step, value=cf.value * portfolio.cashflow_allocation)
+                for cf in shared_cash_flows
+            ]
+            
+            # Build simulation data for this portfolio
+            data = {
+                "number_of_simulations": self.adviser_config.number_of_simulations,
+                "end_step": end_step,
+                "weights": portfolio.weights,
+                "savings_rates": portfolio_cash_flows,
+                "oneoff_transactions": [],
+                "inflation": self.adviser_config.inflation,
+                "initial_wealth": portfolio_initial_wealth,
+                "percentiles": [5, 25, 50, 75, 95],
+                "simulation_type": SimulationType.CHOLESKY,
+                "step_size": SimulationStepType.ANNUAL,
+                "weights_interpolation": InterpolationMethod.FFILL,
+                "savings_rate_interpolation": InterpolationMethod.FFILL,
+                "asset_costs": portfolio.asset_costs,
+                "asset_returns": portfolio.expected_returns
+            }
+            
+            command = RunSimulationCommand.model_validate(convert_json_to_snake(data))
+            result = command.handle()
+            # Use id as key, or generate a temporary key if id is None
+            portfolio_key = str(portfolio.id) if portfolio.id else f"temp_{len(portfolio_results)}"
+            portfolio_results[portfolio_key] = result
+        
+        # Aggregate results across all portfolios
+        aggregated_result = self._aggregate_portfolio_results(portfolio_results, end_step)
+        
+        # Return both aggregated and individual results
+        return MultiPortfolioSimulationResultDTO(
+            aggregated=aggregated_result,
+            individual_portfolios=portfolio_results
+        )
+    
+    def _aggregate_portfolio_results(
+        self, 
+        portfolio_results: Dict[str, SimulationResultDTO],
+        end_step: int
+    ) -> SimulationResultDTO:
+        """Aggregate simulation results from multiple portfolios."""
+        # Get timesteps from first portfolio (all should have same timesteps)
+        first_result = next(iter(portfolio_results.values()))
+        timesteps = first_result.timesteps
+        
+        # Aggregate nominal wealth data (sum across portfolios)
+        aggregated_nominal_data = None
+        aggregated_real_data = None
+        
+        for portfolio_id, result in portfolio_results.items():
+            if aggregated_nominal_data is None:
+                aggregated_nominal_data = result.nominal.simulation_data.copy()
+                aggregated_real_data = result.real.simulation_data.copy()
+            else:
+                aggregated_nominal_data += result.nominal.simulation_data
+                aggregated_real_data += result.real.simulation_data
+        
+        # Calculate aggregated statistics
+        aggregated_nominal_mean = np.mean(aggregated_nominal_data, axis=0)
+        aggregated_nominal_median = np.median(aggregated_nominal_data, axis=0)
+        aggregated_nominal_percentiles = np.percentile(aggregated_nominal_data, [5, 25, 50, 75, 95], axis=0)
+        
+        aggregated_real_mean = np.mean(aggregated_real_data, axis=0)
+        aggregated_real_median = np.median(aggregated_real_data, axis=0)
+        aggregated_real_percentiles = np.percentile(aggregated_real_data, [5, 25, 50, 75, 95], axis=0)
+        
+        # Calculate final statistics
+        final_nominal_mean = aggregated_nominal_mean[-1]
+        final_nominal_median = aggregated_nominal_median[-1]
+        final_nominal_std = np.std(aggregated_nominal_data[:, -1])
+        final_nominal_min = np.min(aggregated_nominal_data[:, -1])
+        final_nominal_max = np.max(aggregated_nominal_data[:, -1])
+        
+        final_real_mean = aggregated_real_mean[-1]
+        final_real_median = aggregated_real_median[-1]
+        final_real_std = np.std(aggregated_real_data[:, -1])
+        final_real_min = np.min(aggregated_real_data[:, -1])
+        final_real_max = np.max(aggregated_real_data[:, -1])
+        
+        # Calculate destitution risk (any portfolio at zero = destitute)
+        # For aggregated wealth, destitution is when total wealth is zero
+        destitution_risk = (aggregated_nominal_data == 0).sum(axis=0) / aggregated_nominal_data.shape[0]
+        
+        # Calculate time deltas (same as in simulation engine)
+        time_deltas = np.diff(np.concatenate([[0], timesteps]))
+        destitution_area = np.sum(destitution_risk * time_deltas) / np.sum(time_deltas) if np.sum(time_deltas) > 0 else 0.0
+        
+        # Build aggregated DTOs
+        aggregated_nominal = SimulationDataDTO(
+            simulation_data=aggregated_nominal_data,
+            percentiles={percentile: aggregated_nominal_percentiles[i, :].tolist() for i, percentile in enumerate([5, 25, 50, 75, 95])},
+            mean=aggregated_nominal_mean.tolist(),
+            final_mean=final_nominal_mean,
+            final_median=final_nominal_median,
+            final_std=final_nominal_std,
+            final_min=final_nominal_min,
+            final_max=final_nominal_max,
+        )
+        
+        aggregated_real = SimulationDataDTO(
+            simulation_data=aggregated_real_data,
+            percentiles={percentile: aggregated_real_percentiles[i, :].tolist() for i, percentile in enumerate([5, 25, 50, 75, 95])},
+            mean=aggregated_real_mean.tolist(),
+            final_mean=final_real_mean,
+            final_median=final_real_median,
+            final_std=final_real_std,
+            final_min=final_real_min,
+            final_max=final_real_max,
+        )
+        
+        # Calculate total parameters and simulation time (sum across all portfolios)
+        total_parameters = sum(
+            result.total_parameters for result in portfolio_results.values()
+        )
+        total_simulation_time = sum(
+            result.simulation_time for result in portfolio_results.values()
+        )
+        
+        return SimulationResultDTO(
+            real=aggregated_real,
+            nominal=aggregated_nominal,
+            destitution=destitution_risk.tolist(),
+            timesteps=timesteps,
+            simulation_time=total_simulation_time,
+            simulation_time_per_timestep=total_simulation_time / len(timesteps) if len(timesteps) > 0 else 0.0,
+            simulation_time_per_path=total_simulation_time / self.adviser_config.number_of_simulations,
+            total_parameters=total_parameters,
+            destitution_area=destitution_area,
+        )
