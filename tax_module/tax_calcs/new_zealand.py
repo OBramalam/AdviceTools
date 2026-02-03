@@ -7,12 +7,13 @@ def calculate_PIE_tax(pir_rate: float, marginal_tax_rate: float, pie_return: flo
     if pie_return < 0:
         return 0
     
-    taxable_income = pie_return / 0.4 # Assume 50% returns come from interest/dividends
+    # Assume 40% returns come from interest/dividends
+    taxable_income = pie_return * 0.4 
 
     if marginal_tax_rate <= pir_rate:
-        return marginal_tax_rate * pie_return
+        return marginal_tax_rate * taxable_income
     else:
-        return pir_rate * pie_return
+        return pir_rate * taxable_income
 
 def calculate_FIF_tax(marginal_tax_rate: float, fif_return: float) -> float:
     """

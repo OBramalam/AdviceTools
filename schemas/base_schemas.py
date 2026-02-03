@@ -35,6 +35,7 @@ class AdviserConfig(BaseModel):
     asset_costs: dict[str, float] = Field(default={"stocks": 0.001, "bonds": 0.001, "cash": 0.001})
     expected_returns: dict[str, float] = Field(default={"stocks": 0.08, "bonds": 0.04, "cash": 0.02})
     number_of_simulations: int = Field(default=5000)
+    allocation_step: float = Field(default=0.10, ge=0.01, le=1.0, description="Step size for allocation inputs (e.g., 0.10 = 10% increments)")
 
 
 class FinancialPlan(BaseModel):

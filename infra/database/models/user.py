@@ -17,3 +17,4 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True)
 
     financial_plans = relationship("FinancialPlan", back_populates="user")
+    adviser_config = relationship("AdviserConfig", back_populates="user", uselist=False)

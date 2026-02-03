@@ -2,7 +2,10 @@ import datetime
 import calendar
 from dateutil.relativedelta import relativedelta
 import re
-from typing import Union
+from typing import Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def age_to_date(current_age, target_age):
@@ -140,4 +143,47 @@ def sqlalchemy_to_pydantic_portfolio(sqlalchemy_portfolio, pydantic_portfolio_cl
         initial_portfolio_value=sqlalchemy_portfolio.initial_portfolio_value,
         cashflow_allocation=sqlalchemy_portfolio.cashflow_allocation
     )
+
+
+def pydantic_to_sqlalchemy_adviser_config(pydantic_config, sqlalchemy_config_class, exclude_fields: set = None):
+    if exclude_fields is None:
+        exclude_fields = {'id', 'created_at', 'updated_at'}
+    
+    data = pydantic_config.model_dump(exclude=exclude_fields)
+    
+    sqlalchemy_fields = {'user_id', 'risk_allocation_map', 'inflation', 'asset_costs', 
+                         'expected_returns', 'number_of_simulations', 'allocation_step'}
+    data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
+    
+    return sqlalchemy_config_class(**data)
+
+
+def sqlalchemy_to_pydantic_adviser_config(sqlalchemy_config, pydantic_config_class):
+    return pydantic_config_class.model_validate(sqlalchemy_config, from_attributes=True)
+
+
+def get_adviser_config_by_user_id(user_id: int, db: "Session", use_defaults_if_not_found: bool = True):
+    """
+    Get adviser config for a user from the database.
+    
+    Args:
+        user_id: The user ID to fetch the config for
+        db: SQLAlchemy database session
+        use_defaults_if_not_found: If True, return default AdviserConfig if not found. If False, return None.
+    
+    Returns:
+        AdviserConfig: The user's adviser config, or default config if not found and use_defaults_if_not_found=True,
+                      or None if not found and use_defaults_if_not_found=False
+    """
+    from infra.database.models.adviser_config import AdviserConfig as DBAdviserConfig
+    from schemas.base_schemas import AdviserConfig
+    
+    db_config = db.query(DBAdviserConfig).filter(DBAdviserConfig.user_id == user_id).first()
+    
+    if db_config:
+        return sqlalchemy_to_pydantic_adviser_config(db_config, AdviserConfig)
+    elif use_defaults_if_not_found:
+        return AdviserConfig()  # Return default config
+    else:
+        return None
 

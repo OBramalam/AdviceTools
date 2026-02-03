@@ -8,6 +8,8 @@
    - [Authentication](#authentication-endpoints)
    - [Financial Plans](#financial-plans-endpoints)
    - [Cash Flows](#cash-flows-endpoints)
+   - [Portfolios](#portfolio-endpoints)
+   - [Adviser Config](#adviser-config-endpoints)
    - [Chat](#chat-endpoints)
    - [File Upload](#file-upload-endpoint)
    - [Simulation](#simulation-endpoint)
@@ -25,6 +27,8 @@ This API provides endpoints for financial planning, retirement simulations, and 
 - User authentication and authorization
 - Financial plan management (CRUD operations)
 - Cash flow management (CRUD operations)
+- Portfolio management (CRUD operations)
+- Adviser configuration management (user-level defaults)
 - AI-powered chat for data collection
 - File upload and parsing
 - Financial simulations
@@ -74,7 +78,7 @@ The API uses JWT (JSON Web Tokens) with a two-token system:
 
 #### Register
 
-Create a new user account.
+Create a new user account. An adviser config with default settings is automatically created for the new user.
 
 **Endpoint:** `POST /api/auth/register`
 
@@ -909,6 +913,89 @@ Authorization: Bearer <access_token>
 
 ---
 
+### Adviser Config Endpoints
+
+All adviser config endpoints require authentication.
+
+Adviser config represents user-level default settings that apply across all financial plans for a user. Each user has exactly one adviser config that defines default simulation parameters, risk allocation mappings, and frontend UI constraints.
+
+**Important:** An adviser config is automatically created with default settings when a user account is registered. Users cannot create or delete their adviser config - they can only retrieve and update it.
+
+#### Get Adviser Config
+
+Get the adviser config for the current user.
+
+**Endpoint:** `GET /api/adviser-configs`
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "risk_allocation_map": {1: 0.3, 2: 0.5, 3: 0.6, 4: 0.8, 5: 0.9},
+  "inflation": 0.02,
+  "asset_costs": {"stocks": 0.001, "bonds": 0.001, "cash": 0.001},
+  "expected_returns": {"stocks": 0.08, "bonds": 0.04, "cash": 0.02},
+  "number_of_simulations": 5000,
+  "allocation_step": 0.10
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Adviser config not found for the current user (should not occur as config is created during registration)
+
+---
+
+#### Update Adviser Config
+
+Update the adviser config for the current user.
+
+**Endpoint:** `PUT /api/adviser-configs`
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "risk_allocation_map": {1: 0.25, 2: 0.45, 3: 0.65, 4: 0.85, 5: 0.95},
+  "inflation": 0.025,
+  "asset_costs": {"stocks": 0.0015, "bonds": 0.001, "cash": 0.0005},
+  "expected_returns": {"stocks": 0.09, "bonds": 0.04, "cash": 0.02},
+  "number_of_simulations": 10000,
+  "allocation_step": 0.05
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "risk_allocation_map": {1: 0.25, 2: 0.45, 3: 0.65, 4: 0.85, 5: 0.95},
+  "inflation": 0.025,
+  "asset_costs": {"stocks": 0.0015, "bonds": 0.001, "cash": 0.0005},
+  "expected_returns": {"stocks": 0.09, "bonds": 0.04, "cash": 0.02},
+  "number_of_simulations": 10000,
+  "allocation_step": 0.05
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Adviser config not found for the current user (should not occur as config is created during registration)
+
+**Note:** 
+- `allocation_step` is a frontend-only field that controls the precision of allocation inputs (e.g., 0.10 = 10% increments). This is not enforced on the backend.
+- `risk_allocation_map` maps risk levels (1-5) to stock allocation percentages (0.0 to 1.0)
+- `asset_costs` and `expected_returns` define costs and expected returns for each asset class
+- `number_of_simulations` controls how many Monte Carlo simulation paths to run
+
+---
+
 ### Chat Endpoints
 
 All chat endpoints require authentication.
@@ -1151,7 +1238,8 @@ file: <file>
     "inflation": 0.02,
     "asset_costs": {"stocks": 0.001, "bonds": 0.001, "cash": 0.001},
     "expected_returns": {"stocks": 0.08, "bonds": 0.04, "cash": 0.02},
-    "number_of_simulations": 5000
+    "number_of_simulations": 5000,
+    "allocation_step": 0.10
   }
 }
 ```
@@ -1204,7 +1292,8 @@ You can optionally override cash flows and adviser config if needed:
     "inflation": 0.025,
     "asset_costs": {"stocks": 0.001, "bonds": 0.001, "cash": 0.001},
     "expected_returns": {"stocks": 0.08, "bonds": 0.04, "cash": 0.02},
-    "number_of_simulations": 10000
+    "number_of_simulations": 10000,
+    "allocation_step": 0.10
   }
 }
 ```
@@ -1217,12 +1306,13 @@ You can optionally override cash flows and adviser config if needed:
 
 3. **Portfolios**: The system automatically fetches all portfolios associated with the financial plan from the database. Portfolios are always used for simulation. If no portfolios exist for the plan, you must create at least one portfolio before running a simulation.
 
-4. **Adviser Config**: If `adviser_config` is not provided, the system uses default values:
+4. **Adviser Config**: If `adviser_config` is not provided, the system first checks if the user has a saved adviser config in the database. If not, it uses default values:
    - `risk_allocation_map`: `{1: 0.3, 2: 0.5, 3: 0.6, 4: 0.8, 5: 0.9}`
    - `inflation`: `0.02`
    - `asset_costs`: `{"stocks": 0.001, "bonds": 0.001, "cash": 0.001}`
    - `expected_returns`: `{"stocks": 0.08, "bonds": 0.04, "cash": 0.02}`
    - `number_of_simulations`: `5000`
+   - `allocation_step`: `0.10`
 
 **Response:** `200 OK`
 
@@ -1232,6 +1322,7 @@ Always returns a `MultiPortfolioSimulationResultDTO` for consistent structure:
 {
   "success": true,
   "result": {
+    "timestep_unit": "monthly",
     "aggregated": {
       "real": {
         "simulation_data": [[...], [...]],  // 2D array: [num_simulations][num_timesteps]
@@ -1266,7 +1357,7 @@ Always returns a `MultiPortfolioSimulationResultDTO` for consistent structure:
         "final_max": 8000000.0
       },
       "destitution": [0.0, 0.001, 0.002, ...],
-      "timesteps": [0, 1, 2, 3, ...],
+      "timesteps": [0, 1, 2, 3, ...],  // Units depend on timestep_unit: months if "monthly", years if "annual"
       "simulation_time": 0.123,
       "simulation_time_per_timestep": 0.002,
       "simulation_time_per_path": 0.0001,
@@ -1280,7 +1371,7 @@ Always returns a `MultiPortfolioSimulationResultDTO` for consistent structure:
         "real": { ... },
         "nominal": { ... },
         "destitution": [...],
-        "timesteps": [...],
+        "timesteps": [...],  // Units depend on timestep_unit at top level
         "simulation_time": 0.123,
         "simulation_time_per_timestep": 0.002,
         "simulation_time_per_path": 0.0001,
@@ -1428,13 +1519,19 @@ interface ChatMessage {
 
 ```typescript
 interface AdviserConfig {
-  risk_allocation_map: Record<number, number>; // Risk level -> allocation percentage
-  inflation: number;
-  asset_costs: Record<string, number>; // Asset type -> cost percentage
-  expected_returns: Record<string, number>; // Asset type -> expected return
-  number_of_simulations: number;
+  risk_allocation_map: Record<number, number>; // Risk level (1-5) -> stock allocation percentage (0.0 to 1.0)
+  inflation: number; // Annual inflation rate (e.g., 0.02 = 2%)
+  asset_costs: Record<string, number>; // Asset type -> cost percentage (e.g., {"stocks": 0.001, "bonds": 0.001, "cash": 0.001})
+  expected_returns: Record<string, number>; // Asset type -> expected return (e.g., {"stocks": 0.08, "bonds": 0.04, "cash": 0.02})
+  number_of_simulations: number; // Number of Monte Carlo simulation paths to run
+  allocation_step: number; // Frontend-only: Step size for allocation inputs (e.g., 0.10 = 10% increments). Not enforced on backend.
 }
 ```
+
+**Note:** 
+- `allocation_step` is a frontend-only field that controls the precision of allocation inputs in the UI (e.g., 0.10 means users can only input 80%, 70%, 60%, etc., not 85%, 75%, 65%). This constraint is not enforced on the backend.
+- Each user can have one adviser config that serves as default settings across all their financial plans.
+- If no adviser config exists for a user, default values are used when running simulations.
 
 ### SimulationRequest
 
@@ -1483,7 +1580,7 @@ interface SimulationResultDTO {
   real: SimulationDataDTO; // Inflation-adjusted wealth values
   nominal: SimulationDataDTO; // Current dollar values (not inflation-adjusted)
   destitution: number[]; // Probability of destitution at each timestep (0.0 to 1.0)
-  timesteps: number[]; // Time points (years) for each data point
+  timesteps: number[]; // Time points for each data point (units: months if timestep_unit="monthly", years if timestep_unit="annual")
   simulation_time: number; // Total execution time in seconds
   simulation_time_per_timestep: number; // Average time per timestep
   simulation_time_per_path: number; // Average time per simulation path
@@ -1496,6 +1593,7 @@ interface SimulationResultDTO {
 
 ```typescript
 interface MultiPortfolioSimulationResultDTO {
+  timestep_unit: "monthly" | "annual"; // Time unit for all timesteps in the response (applies to all data)
   aggregated: SimulationResultDTO; // Combined results across all portfolios
   individual_portfolios: Record<string, SimulationResultDTO>; // Results for each portfolio, keyed by portfolio database ID (as string)
 }
@@ -1504,6 +1602,7 @@ interface MultiPortfolioSimulationResultDTO {
 **Note:** The response always uses `MultiPortfolioSimulationResultDTO` for consistency:
 - **Single portfolio**: `individual_portfolios` contains one entry with key `"default"`, and `aggregated` is identical to this result
 - **Multi-portfolio**: `individual_portfolios` contains separate results for each portfolio (keyed by portfolio database ID as string), and `aggregated` represents the combined wealth across all portfolios
+- **Timestep Unit**: The `timestep_unit` field indicates whether timesteps represent months or years. When `"monthly"`, timesteps are in months (e.g., 0, 1, 2, ..., 360 for 30 years). When `"annual"`, timesteps are in years (e.g., 0, 1, 2, ..., 30). This applies to all timestep arrays in the response.
 
 ---
 
@@ -1781,7 +1880,8 @@ const runSimulationWithCustomConfig = async (planId) => {
         inflation: 0.025,
         asset_costs: {"stocks": 0.0015, "bonds": 0.001, "cash": 0.0005},
         expected_returns: {"stocks": 0.09, "bonds": 0.04, "cash": 0.02},
-        number_of_simulations: 10000
+        number_of_simulations: 10000,
+        allocation_step: 0.05
       }
     })
   });

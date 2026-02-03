@@ -51,6 +51,7 @@ class SimulationResultDTO(AbstractDTO):
 
 class MultiPortfolioSimulationResultDTO(AbstractDTO):
     """Data Transfer Object for multi-portfolio simulation results."""
+    timestep_unit: str  # "monthly" or "annual" - indicates the time unit for all timesteps in the response
     aggregated: SimulationResultDTO
     individual_portfolios: Dict[str, SimulationResultDTO]
     

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from sqlalchemy.orm.session import Session
 from schemas import ExtractionSchema, FinancialPlan, CashFlow, PortfolioConfig, ExpectedReturns, AssetCosts
 from simulation_engine.common.types import SimulationPortfolioWeights
-from common.utils import age_to_date, pydantic_to_sqlalchemy_financial_plan, pydantic_to_sqlalchemy_cashflow, sqlalchemy_to_pydantic_financial_plan, sqlalchemy_to_pydantic_cashflow, pydantic_to_sqlalchemy_portfolio, sqlalchemy_to_pydantic_portfolio
+from common.utils import age_to_date, pydantic_to_sqlalchemy_financial_plan, pydantic_to_sqlalchemy_cashflow, sqlalchemy_to_pydantic_financial_plan, sqlalchemy_to_pydantic_cashflow, pydantic_to_sqlalchemy_portfolio, sqlalchemy_to_pydantic_portfolio, get_adviser_config_by_user_id
 from datetime import datetime
 from infra.database.models.financial_plan import FinancialPlan as DBFinancialPlan
 from infra.database.models.cashflow import CashFlow as DBCashFlow
@@ -51,6 +51,8 @@ class ParserService:
         return [sqlalchemy_to_pydantic_portfolio(portfolio, PortfolioConfig) for portfolio in portfolios]
 
     def _build_data_objects(self, data):
+        # Fetch adviser config for the user
+        adviser_config = get_adviser_config_by_user_id(self.user_id, self.db)
 
         financial_plan = FinancialPlan(
             user_id=self.user_id,
@@ -71,8 +73,16 @@ class ParserService:
                     plan_id=financial_plan.id,
                     name="Default portfolio",
                     weights=[SimulationPortfolioWeights(step=0.0, stocks=0.6)],
-                    expected_returns=ExpectedReturns(stocks=0.10, bonds=0.03, cash=0.02),
-                    asset_costs=AssetCosts(stocks=0.0015, bonds=0.001, cash=0.001),
+                    expected_returns=ExpectedReturns(
+                        stocks=adviser_config.expected_returns.get('stocks', 0.08),
+                        bonds=adviser_config.expected_returns.get('bonds', 0.04),
+                        cash=adviser_config.expected_returns.get('cash', 0.02)
+                    ),
+                    asset_costs=AssetCosts(
+                        stocks=adviser_config.asset_costs.get('stocks', 0.001),
+                        bonds=adviser_config.asset_costs.get('bonds', 0.001),
+                        cash=adviser_config.asset_costs.get('cash', 0.001)
+                    ),
                     initial_portfolio_value=data['current_portfolio_value'][i],
                     cashflow_allocation=1/len(data['current_portfolio_value']),
             ))

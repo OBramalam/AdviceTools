@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from numba import jit
 
 
 def cholesky_bootstrap_returns(n: int, s: int, cov: pd.DataFrame, exp_ret: pd.DataFrame) -> np.ndarray:
@@ -25,6 +26,28 @@ def cholesky_bootstrap_returns(n: int, s: int, cov: pd.DataFrame, exp_ret: pd.Da
     rng = np.random.default_rng()
     y = rng.multivariate_normal(exp_ret.values.flatten(), cov.values, size=(n, s))
     return y
+
+@jit(nopython=True)
+def _compute_wealth_loop(wealth, simulated_returns, weights, cashflows, transactions,
+                         time_delta, inflation, s):
+    """
+    JIT-compiled version of the wealth calculation loop.
+    Keeps the exact same vectorized numpy operations.
+    """
+    inflation_factor = 1.0
+    
+    for i in range(s):
+        inflation_factor *= (1.0 + inflation) ** time_delta[i]
+        portfolio_returns = (weights[i] * (1.0 + simulated_returns[:, i, :]) ** time_delta[i]).sum(axis=1)
+        
+        wealth[:, i + 1] = (
+            wealth[:, i] * portfolio_returns + 
+            (cashflows[i] * time_delta[i] + transactions[i]) * inflation_factor
+        )
+        negative_mask = wealth[:, i + 1] < 0.0
+        wealth[negative_mask, i + 1] = 0.0
+    
+    return wealth  
 
 
 def simulate_wealth(
@@ -84,14 +107,27 @@ def simulate_wealth(
     assert np.all(np.isfinite(initial_wealth)), "Initial wealth must be finite"
     assert np.all(np.isfinite(time_steps)), "Time steps must be finite"
 
-    inflation_factor = 1
-    for i in range(s):
-        inflation_factor *= (1 + inflation) ** time_delta[i]
-        wealth[:, i + 1] = (
-            wealth[:, i] * (weights[i] * (1 + simulated_returns[:, i, :]) ** time_delta[i]).sum(axis=1) + (cashflows[i]*time_delta[i] + transactions[i]) * inflation_factor 
-        )
-        wealth[wealth[:, i + 1] < 0, i + 1] = 0  # set negative wealth to 0
+    # inflation_factor = 1
+    # for i in range(s):
+    #     inflation_factor *= (1 + inflation) ** time_delta[i]
+    #     wealth[:, i + 1] = (
+    #         wealth[:, i] * (weights[i] * (1 + simulated_returns[:, i, :]) ** time_delta[i]).sum(axis=1) + (cashflows[i]*time_delta[i] + transactions[i]) * inflation_factor 
+    #     )
+    #     wealth[wealth[:, i + 1] < 0, i + 1] = 0  # set negative wealth to 0
 
+    # return wealth
+
+    wealth = _compute_wealth_loop(
+        wealth, 
+        simulated_returns, 
+        weights, 
+        cashflows, 
+        transactions,
+        time_delta, 
+        inflation, 
+        s
+    )
+    
     return wealth
 
 

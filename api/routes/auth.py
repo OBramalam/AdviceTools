@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from infra.database.models.user import User
 from infra.database.models.refresh_token import RefreshToken
+from infra.database.models.adviser_config import AdviserConfig as DBAdviserConfig
 from infra.auth.security import (
     hash_password,
     verify_password,
@@ -84,6 +85,18 @@ async def register(
             revoked=False
         )
         db.add(refresh_token)
+        
+        # Create default adviser config for the new user
+        default_adviser_config = DBAdviserConfig(
+            user_id=user.id,
+            risk_allocation_map={1: 0.3, 2: 0.5, 3: 0.6, 4: 0.8, 5: 0.9},
+            inflation=0.02,
+            asset_costs={"stocks": 0.001, "bonds": 0.001, "cash": 0.001},
+            expected_returns={"stocks": 0.08, "bonds": 0.04, "cash": 0.02},
+            number_of_simulations=5000,
+            allocation_step=0.10
+        )
+        db.add(default_adviser_config)
         db.commit()
         
         return AuthResponse(
