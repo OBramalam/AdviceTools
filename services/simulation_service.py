@@ -129,7 +129,7 @@ class SimulationService:
             "oneoff_transactions": [],
             "inflation": inflation,
             "initial_wealth": 0.0,  # TODO: This method should not be used - always create default portfolio instead
-            "percentiles": [5, 25, 50, 75, 95],
+            "percentiles": [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 99],
             "simulation_type": SimulationType.CHOLESKY,
             "step_size": step_size,
             "weights_interpolation": InterpolationMethod.FFILL,

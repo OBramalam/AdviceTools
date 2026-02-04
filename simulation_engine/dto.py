@@ -22,7 +22,7 @@ class AbstractDTO(pydantic.BaseModel):
         
 class SimulationDataDTO(AbstractDTO):
     """Data Transfer Object for simulation data."""
-    simulation_data: np.ndarray
+    simulation_data: np.ndarray | None
     percentiles: dict[float, list[float]]
     mean: list[float]
     final_mean: float

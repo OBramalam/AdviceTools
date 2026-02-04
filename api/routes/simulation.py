@@ -89,6 +89,13 @@ async def run_simulation(
         
         result = simulator.simulate()
         
+        # Strip raw simulation_data before sending to frontend (frontend uses precomputed statistics)
+        result.aggregated.real.simulation_data = None
+        result.aggregated.nominal.simulation_data = None
+        for portfolio_result in result.individual_portfolios.values():
+            portfolio_result.real.simulation_data = None
+            portfolio_result.nominal.simulation_data = None
+        
         # Convert result to JSON-serializable format
         # Handle numpy arrays by converting them to lists
         if hasattr(result, 'model_dump'):
