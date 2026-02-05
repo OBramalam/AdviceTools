@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, func
 from sqlalchemy.orm import relationship
 from ..base import Base
 from sqlalchemy.sql.schema import ForeignKey
-from common.enums import CashFlowType
+from common.enums import CashFlowType, CashFlowPeriodicity
 
 class CashFlow(Base):
     __tablename__ = "cashflows"
@@ -13,6 +13,8 @@ class CashFlow(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
+    periodicity = Column(String(20), nullable=False, default=CashFlowPeriodicity.MONTHLY.value)
+    frequency = Column(Integer, nullable=False, default=1)
     start_date = Column(DateTime, nullable = True)
     end_date = Column(DateTime, nullable = True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)

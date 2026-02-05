@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from common.enums import CashFlowType
+from common.enums import CashFlowType, CashFlowPeriodicity
 from simulation_engine.common.types import SimulationPortfolioWeights, ExpectedReturns, AssetCosts
 
 
@@ -67,5 +67,7 @@ class CashFlow(BaseModel):
     name: str = Field(description="Name of the cash flow")
     description: str = Field(description="Description of the cash flow")
     amount: float = Field(description="Cash flow amount")
-    start_date: Optional[datetime] = Field(None, description="Start date (required for recurring, optional for oneoff)")
-    end_date: Optional[datetime] = Field(None, description="End date (required for recurring, optional for oneoff)")
+    periodicity: CashFlowPeriodicity = Field(default=CashFlowPeriodicity.MONTHLY, description="Time unit: 'monthly', 'quarterly', 'annually', or 'one_off'")
+    frequency: int = Field(default=1, ge=1, description="Number of periods to skip between occurrences (ignored for one_off)")
+    start_date: Optional[datetime] = Field(None, description="Start date (required for recurring, optional for one_off)")
+    end_date: Optional[datetime] = Field(None, description="End date (required for recurring, optional for one_off)")

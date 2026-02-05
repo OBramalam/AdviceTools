@@ -436,6 +436,8 @@ Authorization: Bearer <access_token>
     "name": "Salary",
     "description": "Monthly salary",
     "amount": 5000.0,
+    "periodicity": "monthly",
+    "frequency": 1,
     "start_date": "2024-01-01T00:00:00",
     "end_date": "2054-01-01T00:00:00"
   },
@@ -445,6 +447,8 @@ Authorization: Bearer <access_token>
     "name": "Mortgage",
     "description": "Monthly mortgage payment",
     "amount": -2000.0,
+    "periodicity": "monthly",
+    "frequency": 1,
     "start_date": "2024-01-01T00:00:00",
     "end_date": "2034-01-01T00:00:00"
   }
@@ -477,6 +481,8 @@ Authorization: Bearer <access_token>
   "name": "Salary",
   "description": "Monthly salary",
   "amount": 5000.0,
+  "periodicity": "monthly",
+  "frequency": 1,
   "start_date": "2024-01-01T00:00:00",
   "end_date": "2054-01-01T00:00:00"
 }
@@ -504,12 +510,17 @@ Authorization: Bearer <access_token>
   "name": "Rental Income",
   "description": "Monthly rental income",
   "amount": 1500.0,
+  "periodicity": "monthly",
+  "frequency": 1,
   "start_date": "2024-01-01T00:00:00",
   "end_date": "2054-01-01T00:00:00"
 }
 ```
 
-**Note:** `plan_id` is set from the URL path. `id` is auto-generated.
+**Note:** 
+- `plan_id` is set from the URL path. `id` is auto-generated.
+- `periodicity` defaults to `"monthly"` if not provided
+- `frequency` defaults to `1` if not provided
 
 **Response:** `201 Created`
 ```json
@@ -519,8 +530,36 @@ Authorization: Bearer <access_token>
   "name": "Rental Income",
   "description": "Monthly rental income",
   "amount": 1500.0,
+  "periodicity": "monthly",
+  "frequency": 1,
   "start_date": "2024-01-01T00:00:00",
   "end_date": "2054-01-01T00:00:00"
+}
+```
+
+**Example: Travel Expense Every 2 Years**
+```json
+{
+  "name": "Travel Expense",
+  "description": "Biannual vacation",
+  "amount": 5000.0,
+  "periodicity": "annually",
+  "frequency": 2,
+  "start_date": "2024-06-01T00:00:00",
+  "end_date": "2054-06-01T00:00:00"
+}
+```
+
+**Example: One-Off Expense**
+```json
+{
+  "name": "Car Purchase",
+  "description": "One-time car purchase",
+  "amount": -30000.0,
+  "periodicity": "one_off",
+  "frequency": 1,
+  "start_date": "2024-12-01T00:00:00",
+  "end_date": null
 }
 ```
 
@@ -546,6 +585,8 @@ Authorization: Bearer <access_token>
   "name": "Updated Rental Income",
   "description": "Updated description",
   "amount": 2000.0,
+  "periodicity": "monthly",
+  "frequency": 1,
   "start_date": "2024-01-01T00:00:00",
   "end_date": "2054-01-01T00:00:00"
 }
@@ -561,6 +602,8 @@ Authorization: Bearer <access_token>
   "name": "Updated Rental Income",
   "description": "Updated description",
   "amount": 2000.0,
+  "periodicity": "monthly",
+  "frequency": 1,
   "start_date": "2024-01-01T00:00:00",
   "end_date": "2054-01-01T00:00:00"
 }
@@ -1455,10 +1498,33 @@ interface CashFlow {
   name: string;
   description: string;
   amount: number; // Positive for income, negative for expenses
-  start_date?: string; // ISO 8601 datetime, optional
-  end_date?: string; // ISO 8601 datetime, optional
+  periodicity: "monthly" | "quarterly" | "annually" | "one_off"; // Time unit for cashflow occurrence (default: "monthly")
+  frequency: number; // Number of periods to skip between occurrences (default: 1, ignored for "one_off")
+  start_date?: string; // ISO 8601 datetime, required for recurring cashflows, optional for one_off
+  end_date?: string; // ISO 8601 datetime, required for recurring cashflows, optional for one_off
 }
 ```
+
+**Periodicity and Frequency:**
+- `periodicity`: Defines the time unit for cashflow occurrences
+  - `"monthly"`: Cashflow occurs every N months (where N = frequency)
+  - `"quarterly"`: Cashflow occurs every N quarters (where N = frequency)
+  - `"annually"`: Cashflow occurs every N years (where N = frequency)
+  - `"one_off"`: Single occurrence at `start_date` (frequency is ignored)
+- `frequency`: Number of periods to skip between occurrences (minimum: 1)
+  - Example: `periodicity="monthly", frequency=2` = every 2 months
+  - Example: `periodicity="annually", frequency=2` = every 2 years
+  - Example: `periodicity="quarterly", frequency=1` = every quarter (every 3 months)
+
+**Amount Interpretation:**
+- `periodicity="monthly"`: Amount is per month
+- `periodicity="quarterly"`: Amount is per quarter
+- `periodicity="annually"`: Amount is per year
+- `periodicity="one_off"`: Amount is total (single occurrence)
+
+**Date Requirements:**
+- Recurring cashflows (`monthly`, `quarterly`, `annually`): Both `start_date` and `end_date` are required
+- One-off cashflows (`one_off`): Only `start_date` is required (or `end_date` can equal `start_date`)
 
 ### PortfolioConfig
 
