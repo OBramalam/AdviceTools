@@ -53,14 +53,18 @@ class RunSimulationCommand(pydantic.BaseModel):
 
         self.weights.sort(key=lambda x: x.step)
         self.savings_rates.sort(key=lambda x: x.step)
+        print("Savings rates:")
+        print(self.savings_rates)
 
         weights_df = pd.DataFrame([weight.model_dump() for weight in self.weights])
         weights_df = weights_df.set_index("step")
+        
 
         cashflows_df = pd.DataFrame([cashflow.model_dump() for cashflow in self.savings_rates])
         cashflows_df = cashflows_df.rename(columns={"value": "cashflow"})
         cashflows_df = cashflows_df.set_index("step")
-
+        print("Casflows df:")
+        print(cashflows_df)
         
         if self.oneoff_transactions:
             oneoff_df = pd.DataFrame([oneoff.model_dump() for oneoff in self.oneoff_transactions])
@@ -72,6 +76,10 @@ class RunSimulationCommand(pydantic.BaseModel):
         base_sim_data = base_sim_data.merge(weights_df, how="outer", left_index=True, right_index=True)
         base_sim_data = base_sim_data.merge(cashflows_df, how="outer", left_index=True, right_index=True)
         base_sim_data = base_sim_data.merge(oneoff_df, how="outer", left_index=True, right_index=True)
+
+
+        print("Base sim data before interpolation:")
+        print(base_sim_data)
 
         base_sim_data["stocks"] = self.interpolate_series(
             base_sim_data["stocks"], self.weights_interpolation
@@ -88,6 +96,8 @@ class RunSimulationCommand(pydantic.BaseModel):
         base_sim_data["transactions"] = base_sim_data["transactions"].fillna(0)
         base_sim_data["time_delta"] = base_sim_data.index.to_series().diff().astype(float)
         base_sim_data["time_delta"] = base_sim_data["time_delta"].astype(float)
+        print("Base sim data:")
+        print(base_sim_data)
         return base_sim_data
     
     @staticmethod
