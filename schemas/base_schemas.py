@@ -64,10 +64,43 @@ class PortfolioConfig(BaseModel):
 class CashFlow(BaseModel):
     id: Optional[int] = Field(None, description="Unique id (auto-generated)")
     plan_id: Optional[int] = Field(None, description="Financial plan this cash flow belongs to (required on create, optional on update)")
+    portfolio_id: Optional[int] = Field(
+        None,
+        description="Portfolio this cash flow belongs to (NULL = plan-level/main cashflow)",
+    )
     name: str = Field(description="Name of the cash flow")
     description: str = Field(description="Description of the cash flow")
-    amount: float = Field(description="Cash flow amount")
+    amount: float = Field(
+        description=(
+            "Cash flow amount. Interpreted as a nominal amount when basis='fixed', "
+            "or as a percentage (e.g. 10 = 10%) when basis is percentage-based."
+        )
+    )
     periodicity: CashFlowPeriodicity = Field(default=CashFlowPeriodicity.MONTHLY, description="Time unit: 'monthly', 'quarterly', 'annually', or 'one_off'")
     frequency: int = Field(default=1, ge=1, description="Number of periods to skip between occurrences (ignored for one_off)")
     start_date: Optional[datetime] = Field(None, description="Start date (required for recurring, optional for one_off)")
     end_date: Optional[datetime] = Field(None, description="End date (required for recurring, optional for one_off)")
+    basis: str = Field(
+        default="fixed",
+        description=(
+            "How to interpret amount: 'fixed' = nominal amount; "
+            "'pct_total_income' = percentage of total income; "
+            "'pct_specific_income' = percentage of a specific income source; "
+            "'pct_savings' = percentage of net savings."
+        ),
+    )
+    reference_cashflow_id: Optional[int] = Field(
+        None,
+        description=(
+            "Optional id of another cashflow this one is based on "
+            "(e.g. for pct_specific_income rules)."
+        ),
+    )
+    include_in_main_savings: bool = Field(
+        default=True,
+        description=(
+            "Whether this cashflow should be included when computing main plan-level "
+            "net savings (income - expenses). Portfolio-specific contributions like "
+            "employer/government super contributions would typically set this to False."
+        ),
+    )

@@ -86,7 +86,11 @@ def pydantic_to_sqlalchemy_cashflow(pydantic_cashflow, sqlalchemy_cashflow_class
     
     data = pydantic_cashflow.model_dump(exclude=exclude_fields)
     
-    sqlalchemy_fields = {'plan_id', 'name', 'description', 'amount', 'periodicity', 'frequency', 'start_date', 'end_date'}
+    sqlalchemy_fields = {
+        'plan_id', 'name', 'description', 'amount', 'periodicity', 'frequency', 
+        'start_date', 'end_date', 'portfolio_id', 'basis', 'reference_cashflow_id', 
+        'include_in_main_savings'
+    }
     data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
     
     return sqlalchemy_cashflow_class(**data)

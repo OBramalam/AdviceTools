@@ -13,6 +13,7 @@ from simulation_engine.common.types import SimulationPortfolioWeights, ExpectedR
 from simulation_engine.common.enums import SimulationType, SimulationStepType, InterpolationMethod
 from simulation_engine.dto import SimulationResultDTO, SimulationDataDTO, MultiPortfolioSimulationResultDTO
 from .risk_indicator_service import calculate_risk_indicator
+from .cashflow_service import CashflowService
 
 class SimulationService:
     # TODO: Move this to adviser_config later
@@ -47,11 +48,13 @@ class SimulationService:
                 self.adviser_config = get_adviser_config_by_user_id(financial_plan.user_id, db)
             else:
                 # Fallback to defaults if no db session or user_id
-                self.adviser_config = AdviserConfig()  # Uses defaults from schema
+            self.adviser_config = AdviserConfig()  # Uses defaults from schema
         else:
             self.adviser_config = adviser_config
         
         self.weights = weights if weights else None
+        # Cashflow service encapsulates all plan/portfolio cashflow construction.
+        self.cashflow_service = CashflowService(use_monthly_steps=self.USE_MONTHLY_STEPS)
 
         # Handle portfolios: if provided, use them; otherwise fetch from database or use default
         if portfolios is not None:
@@ -91,20 +94,18 @@ class SimulationService:
 
     def _simulate_multiple_portfolios(self) -> MultiPortfolioSimulationResultDTO:
         """Run simulation for multiple portfolios and return both aggregated and individual results."""
-        plan_start_date = self.financial_plan.plan_start_date
-        plan_end_date = plan_start_date + relativedelta(years=int(self.financial_plan.plan_end_age)-int(self.financial_plan.start_age))
-        plan_start_year = plan_start_date.year
-        plan_end_year = plan_end_date.year
-        
-        steps_per_year = 12 if self.USE_MONTHLY_STEPS else 1
+        # Build plan-level cashflow context and per-portfolio streams using CashflowService.
+        plan_ctx = self.cashflow_service.build_plan_cashflow_context(
+            self.financial_plan, self.cash_flows
+        )
+        portfolio_streams = self.cashflow_service.build_portfolio_streams(
+            plan_ctx, self.portfolios, self.cash_flows
+        )
+
         step_size = SimulationStepType.MONTHLY if self.USE_MONTHLY_STEPS else SimulationStepType.ANNUAL
-        end_step = (plan_end_year - plan_start_year) * steps_per_year
+        end_step = plan_ctx.end_step
         inflation = self._convert_inflation_to_period(self.adviser_config.inflation)
-        
-        # Build shared cashflows and transactions (will be allocated per portfolio)
-        shared_cash_flows = self._build_cash_flows(plan_start_year, plan_end_year)
-        shared_transactions = self._build_transactions_from_irregular_cashflows(plan_start_year, plan_end_year)
-        
+
         # Run simulation for each portfolio
         portfolio_results: Dict[str, SimulationResultDTO] = {}
         total_simulation_time = 0.0
@@ -112,18 +113,10 @@ class SimulationService:
         for portfolio in self.portfolios:
             # Use portfolio-specific initial wealth directly (nominal dollar value)
             portfolio_initial_wealth = portfolio.initial_portfolio_value
-            
-            # Calculate portfolio-specific cashflows (scaled by allocation)
-            portfolio_cash_flows = [
-                SimulationCashFlow(step=cf.step, value=cf.value * portfolio.cashflow_allocation)
-                for cf in shared_cash_flows
-            ]
-            
-            # Calculate portfolio-specific transactions (scaled by allocation)
-            portfolio_transactions = [
-                SimulationCashFlow(step=tx.step, value=tx.value * portfolio.cashflow_allocation)
-                for tx in shared_transactions
-            ]
+
+            # Retrieve pre-built cashflow streams for this portfolio.
+            portfolio_key = str(portfolio.id) if portfolio.id else f"temp_{len(portfolio_results)}"
+            streams = portfolio_streams[portfolio_key]
             
             # Convert portfolio expected returns and asset costs if using monthly steps
             if self.USE_MONTHLY_STEPS:
@@ -149,8 +142,8 @@ class SimulationService:
                 "number_of_simulations": self.adviser_config.number_of_simulations,
                 "end_step": end_step,
                 "weights": portfolio.weights,
-                "savings_rates": portfolio_cash_flows,
-                "oneoff_transactions": portfolio_transactions,
+                "savings_rates": streams.savings_rates,
+                "oneoff_transactions": streams.transactions,
                 "inflation": inflation,
                 "initial_wealth": portfolio_initial_wealth,
                 "percentiles": [5, 25, 50, 75, 95],
@@ -269,6 +262,17 @@ class SimulationService:
 
         # Only process regular monthly cashflows (periodicity=MONTHLY, frequency=1)
         for cf in self.cash_flows or []:
+            # Plan-level main cashflows only: ignore portfolio-specific rows here
+            # and any cashflows that are explicitly excluded from main savings.
+            if getattr(cf, "portfolio_id", None) is not None:
+                continue
+            if not getattr(cf, "include_in_main_savings", True):
+                continue
+            # For now, only treat 'fixed' basis as part of main cashflows. Percentage-based
+            # cashflows (pct_total_income, pct_specific_income, pct_savings) will be
+            # handled separately as portfolio-specific contributions.
+            if getattr(cf, "basis", "fixed") != "fixed":
+                continue
             periodicity = self._normalize_periodicity(getattr(cf, 'periodicity', CashFlowPeriodicity.MONTHLY))
             frequency = getattr(cf, 'frequency', 1)
             
@@ -293,9 +297,9 @@ class SimulationService:
                 e = end_year_diff * 12 + end_month
             else:
                 amount = to_annual(cf.amount)  # Convert monthly to annual
-                s = cf.start_date.year - plan_start_year
-                e = cf.end_date.year - plan_start_year
-            
+            s = cf.start_date.year - plan_start_year
+            e = cf.end_date.year - plan_start_year
+
             add_cashflow_event(max(0, s), +amount)  # Start: add the cash flow
             add_cashflow_event(e + 1, -amount)      # End: remove the cash flow
 
@@ -350,6 +354,14 @@ class SimulationService:
 
         # Process all irregular cashflows
         for cf in self.cash_flows or []:
+            # Plan-level main cashflows only: ignore portfolio-specific rows here
+            # and any cashflows that are explicitly excluded from main savings.
+            if getattr(cf, "portfolio_id", None) is not None:
+                continue
+            if not getattr(cf, "include_in_main_savings", True):
+                continue
+            if getattr(cf, "basis", "fixed") != "fixed":
+                continue
             periodicity = self._normalize_periodicity(getattr(cf, 'periodicity', CashFlowPeriodicity.MONTHLY))
             frequency = getattr(cf, 'frequency', 1)
             
@@ -459,11 +471,11 @@ class SimulationService:
                 cash=cash_monthly
             )
         else:
-            expected_returns = ExpectedReturns(
-                stocks=self.adviser_config.expected_returns['stocks'],
-                bonds=self.adviser_config.expected_returns['bonds'],
-                cash=self.adviser_config.expected_returns['cash']
-            )
+        expected_returns = ExpectedReturns(
+            stocks=self.adviser_config.expected_returns['stocks'],
+            bonds=self.adviser_config.expected_returns['bonds'],
+            cash=self.adviser_config.expected_returns['cash']
+        )
         return expected_returns
 
     def _build_asset_costs(self):
@@ -475,11 +487,11 @@ class SimulationService:
                 cash=self.adviser_config.asset_costs['cash'] / 12
             )
         else:
-            asset_costs = AssetCosts(
-                stocks=self.adviser_config.asset_costs['stocks'],
-                bonds=self.adviser_config.asset_costs['bonds'],
-                cash=self.adviser_config.asset_costs['cash']
-            )
+        asset_costs = AssetCosts(
+            stocks=self.adviser_config.asset_costs['stocks'],
+            bonds=self.adviser_config.asset_costs['bonds'],
+            cash=self.adviser_config.asset_costs['cash']
+        )
         return asset_costs
     
     def _convert_inflation_to_period(self, annual_inflation: float) -> float:
@@ -541,7 +553,7 @@ class SimulationService:
         if not abs(total_cashflow_allocation - 1.0) < 1e-6:
             raise ValueError(
                 f"Cashflow allocations must sum to 1.0, got {total_cashflow_allocation}"
-            )
+        )
     
     def _aggregate_portfolio_results(
         self, 

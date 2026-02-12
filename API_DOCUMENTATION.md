@@ -1495,13 +1495,29 @@ interface FinancialPlan {
 interface CashFlow {
   id?: number; // Optional, auto-generated on create
   plan_id: number; // Set from URL path on create
+  portfolio_id?: number | null; // Optional: when set, this is a portfolio-specific cashflow; when null/omitted, it's a plan-level cashflow
   name: string;
   description: string;
-  amount: number; // Positive for income, negative for expenses
+  amount: number; // Interpretation depends on 'basis' (see below)
   periodicity: "monthly" | "quarterly" | "annually" | "one_off"; // Time unit for cashflow occurrence (default: "monthly")
   frequency: number; // Number of periods to skip between occurrences (default: 1, ignored for "one_off")
   start_date?: string; // ISO 8601 datetime, required for recurring cashflows, optional for one_off
   end_date?: string; // ISO 8601 datetime, required for recurring cashflows, optional for one_off
+  basis?: "fixed" | "pct_total_income" | "pct_specific_income" | "pct_savings"; 
+  // How to interpret 'amount':
+  // - "fixed"              => amount is a nominal currency value (e.g., 500 = $500)
+  // - "pct_total_income"   => amount is a percentage of total income at each timestep (e.g., 10 = 10% of total income)
+  // - "pct_specific_income"=> amount is a percentage of a specific income cashflow (identified by reference_cashflow_id)
+  // - "pct_savings"        => amount is a percentage of net savings (income - expenses) at each timestep
+
+  reference_cashflow_id?: number | null; 
+  // Optional id of another CashFlow this one is based on (used with "pct_specific_income" basis)
+
+  include_in_main_savings?: boolean; 
+  // Whether this cashflow should be included when computing plan-level net savings (income - expenses):
+  // - true  => contributes to the shared income/expense pool (default for normal income/expenses)
+  // - false => treated as a portfolio-specific adjustment (e.g., employer/government contributions) and
+  //            does not change the shared net savings that get allocated across portfolios
 }
 ```
 
@@ -1517,10 +1533,13 @@ interface CashFlow {
   - Example: `periodicity="quarterly", frequency=1` = every quarter (every 3 months)
 
 **Amount Interpretation:**
-- `periodicity="monthly"`: Amount is per month
-- `periodicity="quarterly"`: Amount is per quarter
-- `periodicity="annually"`: Amount is per year
-- `periodicity="one_off"`: Amount is total (single occurrence)
+- For `basis="fixed"`:
+  - `periodicity="monthly"`: Amount is per month
+  - `periodicity="quarterly"`: Amount is per quarter
+  - `periodicity="annually"`: Amount is per year
+  - `periodicity="one_off"`: Amount is total (single occurrence)
+- For percentage-based bases (`"pct_total_income"`, `"pct_specific_income"`, `"pct_savings"`):
+  - `amount` is always interpreted as a percentage (e.g., `10` = 10%) of the chosen base at each timestep
 
 **Date Requirements:**
 - Recurring cashflows (`monthly`, `quarterly`, `annually`): Both `start_date` and `end_date` are required
