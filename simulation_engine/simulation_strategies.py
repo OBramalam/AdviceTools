@@ -19,6 +19,7 @@ class AbstractSimulationStrategy(ABC):
         inflation: float,
         initial_wealth: float,
         step_type: SimulationStepType = SimulationStepType.MONTHLY,
+        tax_model = None,
     ):
         self.base_sim_data = base_sim_data
         self.number_of_simulations = number_of_simulations
@@ -26,6 +27,7 @@ class AbstractSimulationStrategy(ABC):
         self.initial_wealth = initial_wealth
         self._simulation_data = None
         self.step_type = step_type
+        self.tax_model = tax_model
 
     @property
     @abstractmethod
@@ -80,6 +82,8 @@ class AbstractSimulationStrategy(ABC):
         return time_steps
 
     def simulate(self):
+        # Determine if we're using monthly steps for annual tax calculation
+        is_monthly = self.step_type == SimulationStepType.MONTHLY
         return simulate_wealth(
             self.simulated_returns,
             self.weights,
@@ -88,6 +92,8 @@ class AbstractSimulationStrategy(ABC):
             self.transactions,
             self.inflation,
             self.time_steps,
+            tax_model=self.tax_model,
+            is_monthly=is_monthly,
         )
 
     @property
@@ -155,8 +161,9 @@ class CholeskySimulationStrategy(AbstractSimulationStrategy):
         initial_wealth: float,
         expected_returns: pd.DataFrame = None,
         step_type: SimulationStepType = SimulationStepType.MONTHLY,
+        tax_model = None,
     ):
-        super().__init__(base_sim_data, number_of_simulations, inflation, initial_wealth, step_type)
+        super().__init__(base_sim_data, number_of_simulations, inflation, initial_wealth, step_type, tax_model)
         self._expected_returns = expected_returns
 
     @cached_property
@@ -209,12 +216,14 @@ class SimulationStrategyFactory:
         inflation: float,
         initial_wealth: float,
         step_type: SimulationStepType = SimulationStepType.MONTHLY,
+        tax_model = None,
     ):
         self.base_sim_data = base_sim_data
         self.number_of_simulations = number_of_simulations
         self.inflation = inflation
         self.initial_wealth = initial_wealth
         self.step_type = step_type
+        self.tax_model = tax_model
 
     def build_strategy(self, simulation_type: SimulationType) -> AbstractSimulationStrategy:
         if simulation_type == SimulationType.CHOLESKY:
@@ -224,5 +233,6 @@ class SimulationStrategyFactory:
                 self.inflation,
                 self.initial_wealth,
                 step_type=self.step_type,
+                tax_model=self.tax_model,
             )
         raise ValueError(f"Unsupported simulation type: {simulation_type}")

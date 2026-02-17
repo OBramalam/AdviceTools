@@ -58,6 +58,8 @@ def simulate_wealth(
     transactions: np.ndarray,
     inflation: float = 0.03,
     time_steps: np.ndarray = None,
+    tax_model = None,
+    is_monthly: bool = True,
 ) -> np.ndarray:
     """
     Simulate wealth using the simulated returns and weights.
@@ -77,6 +79,12 @@ def simulate_wealth(
         Inflation rate. Default is 0.03.
     time_steps : np.array, optional
         s+1 x 1 vector of time steps. If None, will be set to np.arange(0, s + 1).
+    tax_model : optional
+        Tax model for calculating tax on returns. If None, no tax is applied.
+    is_monthly : bool, optional
+        If True, uses monthly steps (tax calculated annually at year boundaries).
+        If False, uses annual steps (tax calculated every step).
+        Default is True.
     Returns
     -------
     np.array
@@ -107,11 +115,45 @@ def simulate_wealth(
     assert np.all(np.isfinite(initial_wealth)), "Initial wealth must be finite"
     assert np.all(np.isfinite(time_steps)), "Time steps must be finite"
 
+    # For annual tax calculation: accumulate returns throughout the year, tax at year boundaries
+    yearly_return_accumulator = np.zeros(n)  # Track accumulated returns for the current year
+    
     inflation_factor = 1
     for i in range(s):
         inflation_factor *= (1 + inflation) ** time_delta[i]
+        
+        # Compute portfolio return factor
+        portfolio_return_factor = (weights[i] * (1 + simulated_returns[:, i, :]) ** time_delta[i]).sum(axis=1)
+        
+        # Calculate return amount in dollar terms: wealth * (factor - 1)
+        pre_tax_wealth = wealth[:, i] * portfolio_return_factor
+        return_amount = pre_tax_wealth - wealth[:, i]  # Dollar return
+        
+        # Compute tax on this step's return (if tax model provided)
+        tax_amount = np.zeros(n)  # Initialize tax array for all paths
+        if tax_model is not None:
+            if is_monthly:
+                # Monthly steps: accumulate returns, tax at year boundaries
+                yearly_return_accumulator += return_amount
+                
+                # Check if this is a year boundary (month 11 = December, or final step)
+                is_year_end = (i % 12 == 11) or (i == s - 1)
+                
+                if is_year_end:
+                    # Calculate tax on accumulated annual return
+                    tax_amount = tax_model.calculate_tax(yearly_return_accumulator)
+                    # Reset accumulator for next year
+                    yearly_return_accumulator = np.zeros(n)
+                # Otherwise, tax_amount remains 0 (no tax during the year)
+            else:
+                # Annual steps: tax every step (already at year boundaries)
+                tax_amount = tax_model.calculate_tax(return_amount)
+        
+        # Apply wealth update with tax deduction
         wealth[:, i + 1] = (
-            wealth[:, i] * (weights[i] * (1 + simulated_returns[:, i, :]) ** time_delta[i]).sum(axis=1) + (cashflows[i]*time_delta[i] + transactions[i]) * inflation_factor 
+            wealth[:, i] * portfolio_return_factor + 
+            (cashflows[i] * time_delta[i] + transactions[i]) * inflation_factor -
+            tax_amount * inflation_factor  # Subtract tax
         )
         wealth[wealth[:, i + 1] < 0, i + 1] = 0  # set negative wealth to 0
 

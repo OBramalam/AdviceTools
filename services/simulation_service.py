@@ -48,7 +48,7 @@ class SimulationService:
                 self.adviser_config = get_adviser_config_by_user_id(financial_plan.user_id, db)
             else:
                 # Fallback to defaults if no db session or user_id
-            self.adviser_config = AdviserConfig()  # Uses defaults from schema
+                self.adviser_config = AdviserConfig()  # Uses defaults from schema
         else:
             self.adviser_config = adviser_config
         
@@ -137,6 +137,13 @@ class SimulationService:
                 portfolio_asset_costs = portfolio.asset_costs
 
 
+            # Validate and prepare tax config for this portfolio
+            from common.utils import validate_tax_config
+            tax_model_config = validate_tax_config(
+                portfolio.tax_jurisdiction,
+                portfolio.tax_config
+            )
+            
             # Build simulation data for this portfolio
             data = {
                 "number_of_simulations": self.adviser_config.number_of_simulations,
@@ -152,7 +159,8 @@ class SimulationService:
                 "weights_interpolation": InterpolationMethod.FFILL,
                 "savings_rate_interpolation": InterpolationMethod.FFILL,
                 "asset_costs": portfolio_asset_costs,
-                "asset_returns": portfolio_expected_returns
+                "asset_returns": portfolio_expected_returns,
+                "tax_model_config": tax_model_config
             }
             
             command = RunSimulationCommand.model_validate(convert_json_to_snake(data))
@@ -471,11 +479,11 @@ class SimulationService:
                 cash=cash_monthly
             )
         else:
-        expected_returns = ExpectedReturns(
-            stocks=self.adviser_config.expected_returns['stocks'],
-            bonds=self.adviser_config.expected_returns['bonds'],
-            cash=self.adviser_config.expected_returns['cash']
-        )
+            expected_returns = ExpectedReturns(
+                stocks=self.adviser_config.expected_returns['stocks'],
+                bonds=self.adviser_config.expected_returns['bonds'],
+                cash=self.adviser_config.expected_returns['cash']
+            )
         return expected_returns
 
     def _build_asset_costs(self):
@@ -487,11 +495,11 @@ class SimulationService:
                 cash=self.adviser_config.asset_costs['cash'] / 12
             )
         else:
-        asset_costs = AssetCosts(
-            stocks=self.adviser_config.asset_costs['stocks'],
-            bonds=self.adviser_config.asset_costs['bonds'],
-            cash=self.adviser_config.asset_costs['cash']
-        )
+            asset_costs = AssetCosts(
+                stocks=self.adviser_config.asset_costs['stocks'],
+                bonds=self.adviser_config.asset_costs['bonds'],
+                cash=self.adviser_config.asset_costs['cash']
+            )
         return asset_costs
     
     def _convert_inflation_to_period(self, annual_inflation: float) -> float:

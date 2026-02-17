@@ -700,7 +700,9 @@ Authorization: Bearer <access_token>
       "cash": 0.001
     },
     "initial_portfolio_value": 72000.0,
-    "cashflow_allocation": 0.6
+    "cashflow_allocation": 0.6,
+    "tax_jurisdiction": null,
+    "tax_config": null
   }
 ]
 ```
@@ -811,7 +813,9 @@ Content-Type: application/json
     "cash": 0.001
   },
   "initial_portfolio_value": 48000.0,
-  "cashflow_allocation": 0.4
+  "cashflow_allocation": 0.4,
+  "tax_jurisdiction": null,
+  "tax_config": null
 }
 ```
 
@@ -824,6 +828,7 @@ Content-Type: application/json
   - If you want a specific cash allocation, set `stocks` and `bonds` such that `1 - stocks - bonds = desired_cash`
 - `initial_portfolio_value` is the nominal dollar amount allocated to this portfolio
 - `cashflow_allocation` must sum to 1.0 across all portfolios for the plan
+- `tax_jurisdiction` and `tax_config` are optional. Both must be provided to apply tax. See [Tax Configuration](#tax-configuration) section for details.
 
 **Response:** `201 Created`
 ```json
@@ -1576,6 +1581,8 @@ interface PortfolioConfig {
   asset_costs: AssetCosts; // Asset costs for each asset class
   initial_portfolio_value: number; // Nominal dollar value of initial wealth allocated to this portfolio
   cashflow_allocation: number; // Fraction of cashflows (must sum to 1.0 across all portfolios)
+  tax_jurisdiction?: string | null; // Tax jurisdiction (e.g., "nz", "au") or null for no tax. Optional.
+  tax_config?: TaxConfig | null; // Jurisdiction-specific tax parameters. Optional. See TaxConfig section below.
 }
 ```
 
@@ -1588,8 +1595,77 @@ interface PortfolioConfig {
   - You provide `stocks` and `bonds` in the request
   - `cash` is automatically calculated as `1 - stocks - bonds` and included in the response
   - If you want a specific cash allocation, set `stocks` and `bonds` such that `1 - stocks - bonds = desired_cash`
+- **Tax Configuration**: 
+  - Both `tax_jurisdiction` and `tax_config` must be provided to apply tax calculations
+  - If either is `null` or omitted, the portfolio will be simulated without tax
+  - `tax_jurisdiction` can default to `adviser_config.tax_jurisdiction` if not provided
+  - See [Tax Configuration](#tax-configuration) section below for details on tax config structure
 - When portfolios are configured for a financial plan, the simulation service automatically uses them
 - At least one portfolio must exist for a financial plan before running a simulation
+
+### Tax Configuration
+
+Tax configuration models define the structure for jurisdiction-specific tax parameters. These models are used in the `tax_config` field of `PortfolioConfig`.
+
+**Important:** Both `tax_jurisdiction` and `tax_config` must be provided for tax to be applied. If either is `null` or omitted, the portfolio will be simulated without tax, even if a jurisdiction is set.
+
+#### TaxConfig (Union Type)
+
+```typescript
+// Currently supported jurisdictions:
+type TaxConfig = NewZealandTaxConfig;
+// Future jurisdictions will be added here as they are implemented:
+// type TaxConfig = NewZealandTaxConfig | AustralianTaxConfig | USTaxConfig | ...
+```
+
+#### NewZealandTaxConfig
+
+Tax configuration for New Zealand accounts using PIE (Portfolio Investment Entity) and FIF (Foreign Investment Fund) tax rules.
+
+```typescript
+interface NewZealandTaxConfig {
+  jurisdiction: "nz"; // Must be "nz" for New Zealand tax
+  pir_rate: number; // Prescribed Investor Rate (PIR), 0.0 to 1.0 (e.g., 0.28 = 28%)
+  marginal_tax_rate: number; // Marginal tax rate, 0.0 to 1.0 (e.g., 0.33 = 33%)
+  percent_pie_fund: number; // Percentage of portfolio in PIE funds, 0.0 to 1.0 (e.g., 0.6 = 60%)
+  percent_fif_fund: number; // Percentage of portfolio in FIF funds, 0.0 to 1.0 (e.g., 0.4 = 40%)
+}
+```
+
+**Validation Rules:**
+- `pir_rate`: Must be between 0.0 and 1.0 (inclusive)
+- `marginal_tax_rate`: Must be between 0.0 and 1.0 (inclusive)
+- `percent_pie_fund`: Must be between 0.0 and 1.0 (inclusive)
+- `percent_fif_fund`: Must be between 0.0 and 1.0 (inclusive)
+- `percent_pie_fund + percent_fif_fund` must equal 1.0 (within 0.01 tolerance)
+
+**Example:**
+```json
+{
+  "jurisdiction": "nz",
+  "pir_rate": 0.28,
+  "marginal_tax_rate": 0.33,
+  "percent_pie_fund": 0.6,
+  "percent_fif_fund": 0.4
+}
+```
+
+**Usage in PortfolioConfig:**
+```typescript
+const portfolio: PortfolioConfig = {
+  // ... other fields ...
+  tax_jurisdiction: "nz",
+  tax_config: {
+    jurisdiction: "nz",
+    pir_rate: 0.28,
+    marginal_tax_rate: 0.33,
+    percent_pie_fund: 0.6,
+    percent_fif_fund: 0.4
+  }
+};
+```
+
+**Note:** More jurisdiction-specific tax config models will be added here as they are implemented (e.g., `AustralianTaxConfig`, `USTaxConfig`, etc.). The `TaxConfig` union type will be updated to include all supported jurisdictions.
 
 ### ChatMessage
 
@@ -1610,11 +1686,13 @@ interface AdviserConfig {
   expected_returns: Record<string, number>; // Asset type -> expected return (e.g., {"stocks": 0.08, "bonds": 0.04, "cash": 0.02})
   number_of_simulations: number; // Number of Monte Carlo simulation paths to run
   allocation_step: number; // Frontend-only: Step size for allocation inputs (e.g., 0.10 = 10% increments). Not enforced on backend.
+  tax_jurisdiction?: string | null; // Default tax jurisdiction (e.g., "nz", "au") for new portfolios. Optional.
 }
 ```
 
 **Note:** 
 - `allocation_step` is a frontend-only field that controls the precision of allocation inputs in the UI (e.g., 0.10 means users can only input 80%, 70%, 60%, etc., not 85%, 75%, 65%). This constraint is not enforced on the backend.
+- `tax_jurisdiction` is a default value that can be used when creating new portfolios. It does not automatically apply tax - portfolios must have both `tax_jurisdiction` and `tax_config` set to actually apply tax calculations.
 - Each user can have one adviser config that serves as default settings across all their financial plans.
 - If no adviser config exists for a user, default values are used when running simulations.
 

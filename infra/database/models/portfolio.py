@@ -15,6 +15,8 @@ class Portfolio(Base):
     asset_costs = Column(JSON, nullable=False)  # AssetCosts as JSON
     initial_portfolio_value = Column(Float, nullable=False)  # Nominal dollar value of initial wealth
     cashflow_allocation = Column(Float, nullable=False)  # Fraction of cashflows (0.0 to 1.0)
+    tax_jurisdiction = Column(String(50), nullable=True)  # Tax jurisdiction (e.g., "nz", "au") or None for no tax
+    tax_config = Column(JSON, nullable=True)  # Jurisdiction-specific tax parameters as JSON
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

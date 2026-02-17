@@ -1,6 +1,7 @@
 import pydantic
 from enum import Enum
 from functools import cached_property
+from typing import Optional, Dict, Any
 import pandas as pd
 import numpy as np
 from .common.types import SimulationPortfolioWeights, CashFlow, AssetCosts, ExpectedReturns
@@ -29,13 +30,19 @@ class RunSimulationCommand(pydantic.BaseModel):
     savings_rate_interpolation: InterpolationMethod = pydantic.Field(default=InterpolationMethod.LINEAR)
     asset_costs: AssetCosts = pydantic.Field(default=AssetCosts())
     asset_returns: ExpectedReturns = pydantic.Field(default=ExpectedReturns())
+    tax_model_config: Optional[Dict[str, Any]] = pydantic.Field(default=None, description="Tax model configuration dict")
 
 
     def __init__(self, **data):
         super().__init__(**data)
         self.number_of_simulations = min(int(os.environ.get("MAX_SIMULATIONS", 1000000)), self.number_of_simulations)
+        
+        # Instantiate tax model if config provided (must be done before creating strategy)
+        from .tax_module import create_tax_model
+        self._tax_model = create_tax_model(self.tax_model_config)
+        
         self._simulation_strategy = SimulationStrategyFactory(
-            self.base_simulation_data, self.number_of_simulations, self.inflation, self.initial_wealth, self.step_size
+            self.base_simulation_data, self.number_of_simulations, self.inflation, self.initial_wealth, self.step_size, self._tax_model
         ).build_strategy(self.simulation_type)
         
         asset_returns_df = pd.DataFrame([self.asset_returns.model_dump()])
@@ -43,6 +50,11 @@ class RunSimulationCommand(pydantic.BaseModel):
     @property
     def simulation_strategy(self) -> SimulationStrategyFactory:
         return self._simulation_strategy
+    
+    @property
+    def tax_model(self):
+        """Get the instantiated tax model, or None if no tax."""
+        return self._tax_model
 
     @cached_property
     def base_simulation_data(self) -> pd.DataFrame:

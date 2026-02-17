@@ -11,7 +11,7 @@ from infra.database.models.financial_plan import FinancialPlan as DBFinancialPla
 from infra.database.models.user import User
 from schemas.base_schemas import PortfolioConfig
 from api.dependencies import get_db, get_current_active_user
-from common.utils import pydantic_to_sqlalchemy_portfolio, sqlalchemy_to_pydantic_portfolio
+from common.utils import pydantic_to_sqlalchemy_portfolio, sqlalchemy_to_pydantic_portfolio, validate_tax_config
 
 router = APIRouter()
 
@@ -75,6 +75,21 @@ async def create_portfolio(
     """Create a new portfolio for a financial plan."""
     verify_plan_ownership(plan_id, current_user.id, db)
     
+    # Validate tax config if provided
+    if portfolio.tax_jurisdiction or portfolio.tax_config:
+        try:
+            validate_tax_config(portfolio.tax_jurisdiction, portfolio.tax_config)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid tax configuration: {str(e)}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Tax configuration validation error: {str(e)}"
+            )
+    
     portfolio_data = portfolio.model_dump(exclude={'id'})
     portfolio_data['plan_id'] = plan_id
     
@@ -128,6 +143,31 @@ async def update_portfolio(
     
     db_portfolio.initial_portfolio_value = portfolio_data['initial_portfolio_value']
     db_portfolio.cashflow_allocation = portfolio_data['cashflow_allocation']
+    
+    # Update tax fields with validation
+    if 'tax_jurisdiction' in portfolio_data or 'tax_config' in portfolio_data:
+        tax_jurisdiction = portfolio_data.get('tax_jurisdiction')
+        tax_config = portfolio_data.get('tax_config')
+        
+        # Validate tax config if provided (will raise ValidationError if invalid)
+        try:
+            validate_tax_config(tax_jurisdiction, tax_config)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid tax configuration: {str(e)}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Tax configuration validation error: {str(e)}"
+            )
+        
+        # Update fields (validation passed)
+        if 'tax_jurisdiction' in portfolio_data:
+            db_portfolio.tax_jurisdiction = tax_jurisdiction
+        if 'tax_config' in portfolio_data:
+            db_portfolio.tax_config = tax_config
     
     db.commit()
     db.refresh(db_portfolio)

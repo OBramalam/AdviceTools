@@ -1,1 +1,1 @@
-from .new_zealand import NewZealandBaseAccount, NewZealandKiwiSaver
+from .new_zealand import NewZealandBaseAccount

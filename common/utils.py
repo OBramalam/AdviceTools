@@ -2,7 +2,7 @@ import datetime
 import calendar
 from dateutil.relativedelta import relativedelta
 import re
-from typing import Union, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING, Optional, Dict, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -121,7 +121,8 @@ def pydantic_to_sqlalchemy_portfolio(pydantic_portfolio, sqlalchemy_portfolio_cl
             data['asset_costs'] = data['asset_costs'].model_dump()
     
     sqlalchemy_fields = {'plan_id', 'name', 'weights', 'expected_returns', 
-                         'asset_costs', 'initial_portfolio_value', 'cashflow_allocation'}
+                         'asset_costs', 'initial_portfolio_value', 'cashflow_allocation',
+                         'tax_jurisdiction', 'tax_config'}
     data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
     
     return sqlalchemy_portfolio_class(**data)
@@ -145,7 +146,9 @@ def sqlalchemy_to_pydantic_portfolio(sqlalchemy_portfolio, pydantic_portfolio_cl
         expected_returns=expected_returns,
         asset_costs=asset_costs,
         initial_portfolio_value=sqlalchemy_portfolio.initial_portfolio_value,
-        cashflow_allocation=sqlalchemy_portfolio.cashflow_allocation
+        cashflow_allocation=sqlalchemy_portfolio.cashflow_allocation,
+        tax_jurisdiction=getattr(sqlalchemy_portfolio, 'tax_jurisdiction', None),
+        tax_config=getattr(sqlalchemy_portfolio, 'tax_config', None)
     )
 
 
@@ -156,7 +159,7 @@ def pydantic_to_sqlalchemy_adviser_config(pydantic_config, sqlalchemy_config_cla
     data = pydantic_config.model_dump(exclude=exclude_fields)
     
     sqlalchemy_fields = {'user_id', 'risk_allocation_map', 'inflation', 'asset_costs', 
-                         'expected_returns', 'number_of_simulations', 'allocation_step'}
+                         'expected_returns', 'number_of_simulations', 'allocation_step', 'tax_jurisdiction'}
     data = {k: v for k, v in data.items() if k in sqlalchemy_fields}
     
     return sqlalchemy_config_class(**data)
@@ -164,6 +167,48 @@ def pydantic_to_sqlalchemy_adviser_config(pydantic_config, sqlalchemy_config_cla
 
 def sqlalchemy_to_pydantic_adviser_config(sqlalchemy_config, pydantic_config_class):
     return pydantic_config_class.model_validate(sqlalchemy_config, from_attributes=True)
+
+
+def validate_tax_config(
+    tax_jurisdiction: Optional[str], 
+    tax_config: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """
+    Validate tax_config JSON against jurisdiction-specific Pydantic schema.
+    Returns validated config dict ready for engine, or None if no tax.
+    Raises ValidationError if tax_config doesn't match jurisdiction schema.
+    
+    Args:
+        tax_jurisdiction: Tax jurisdiction string (e.g., "nz", "au") or None
+        tax_config: Dictionary of tax parameters or None
+        
+    Returns:
+        Validated tax config dict with jurisdiction key, or None if no tax
+        
+    Raises:
+        ValueError: If jurisdiction is unknown or invalid
+        ValidationError: If tax_config doesn't match jurisdiction schema
+    """
+    from schemas.tax_schemas import NewZealandTaxConfig
+    
+    # No tax if jurisdiction or config is None
+    if not tax_jurisdiction or not tax_config:
+        return None
+    
+    # Validate against jurisdiction-specific schema
+    if tax_jurisdiction == "nz":
+        # Validate and parse NZ tax config
+        nz_config = NewZealandTaxConfig(**tax_config)
+        # Return clean dict for engine (includes jurisdiction for factory)
+        return {
+            "jurisdiction": "nz",
+            "pir_rate": nz_config.pir_rate,
+            "marginal_tax_rate": nz_config.marginal_tax_rate,
+            "percent_pie_fund": nz_config.percent_pie_fund,
+            "percent_fif_fund": nz_config.percent_fif_fund,
+        }
+    else:
+        raise ValueError(f"Unknown tax jurisdiction: {tax_jurisdiction}")
 
 
 def get_adviser_config_by_user_id(user_id: int, db: "Session", use_defaults_if_not_found: bool = True):

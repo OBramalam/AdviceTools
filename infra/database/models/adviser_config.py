@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, DateTime, func, JSON
+from sqlalchemy import Column, Integer, Float, DateTime, func, JSON, String
 from sqlalchemy.orm import relationship
 from ..base import Base
 from sqlalchemy.sql.schema import ForeignKey
@@ -15,6 +15,7 @@ class AdviserConfig(Base):
     expected_returns = Column(JSON, nullable=False)  # dict[str, float]
     number_of_simulations = Column(Integer, nullable=False)
     allocation_step = Column(Float, nullable=False, default=0.10)  # Step size for allocations (0.0 to 1.0)
+    tax_jurisdiction = Column(String(50), nullable=True)  # Default tax jurisdiction (e.g., "nz", "au") for new portfolios
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

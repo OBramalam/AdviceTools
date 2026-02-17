@@ -64,7 +64,12 @@ def calculate_FIF_tax(
     comparative_value_tax = marginal_tax_rate * fif_return
     
     # Take the minimum of fair dividend rate tax and comparative value tax
-    tax = np.minimum(fair_dividend_rate_tax, comparative_value_tax)
+    # Set tax to 0 for negative returns (no tax refunds on losses)
+    tax = np.where(
+        fif_return < 0,
+        0.0,
+        np.minimum(fair_dividend_rate_tax, comparative_value_tax)
+    )
     
     # Return scalar if input was scalar, otherwise return array
     if is_scalar:

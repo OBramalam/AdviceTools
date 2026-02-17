@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from common.enums import CashFlowType, CashFlowPeriodicity
 from simulation_engine.common.types import SimulationPortfolioWeights, ExpectedReturns, AssetCosts
@@ -36,6 +36,7 @@ class AdviserConfig(BaseModel):
     expected_returns: dict[str, float] = Field(default={"stocks": 0.08, "bonds": 0.04, "cash": 0.02})
     number_of_simulations: int = Field(default=5000)
     allocation_step: float = Field(default=0.10, ge=0.01, le=1.0, description="Step size for allocation inputs (e.g., 0.10 = 10% increments)")
+    tax_jurisdiction: Optional[str] = Field(None, description="Default tax jurisdiction (e.g., 'nz', 'au') for new portfolios. Note: portfolios still require tax_config to actually apply tax.")
 
 
 class FinancialPlan(BaseModel):
@@ -59,6 +60,8 @@ class PortfolioConfig(BaseModel):
     asset_costs: AssetCosts = Field(description="Asset costs of the portfolio")
     initial_portfolio_value: float = Field(ge=0.0, description="Nominal dollar value of initial wealth allocated to this portfolio")
     cashflow_allocation: float = Field(ge=0.0, le=1.0, description="Fraction of total cashflows allocated to this portfolio (must sum to 1.0 across all portfolios)")
+    tax_jurisdiction: Optional[str] = Field(None, description="Tax jurisdiction (e.g., 'nz', 'au') or None for no tax")
+    tax_config: Optional[Dict[str, Any]] = Field(None, description="Jurisdiction-specific tax parameters as JSON")
 
 
 class CashFlow(BaseModel):
