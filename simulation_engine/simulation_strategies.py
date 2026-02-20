@@ -69,8 +69,10 @@ class AbstractSimulationStrategy(ABC):
         """
         Returns the transactions.
         """
-        # Get transactions column, fill NaN with 0, convert to float, then to numpy array
-        transactions = self.base_sim_data["transactions"].fillna(0).astype(float).values
+        # Use same filtering as cashflows to ensure consistent length
+        _sim_data = self.base_sim_data.dropna(how="any")
+        # Fill NaN with 0, convert to float, then to numpy array
+        transactions = _sim_data["transactions"].fillna(0).astype(float).values
         return transactions
 
     @property
