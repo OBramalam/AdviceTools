@@ -117,6 +117,11 @@ async def delete_financial_plan(
             detail="Financial plan not found"
         )
     
+    # Explicitly delete related cashflows and portfolios first
+    db.query(DBCashFlow).filter(DBCashFlow.plan_id == plan_id).delete()
+    db.query(DBPortfolio).filter(DBPortfolio.plan_id == plan_id).delete()
+    
+    # Now delete the plan
     db.delete(db_plan)
     db.commit()
     
