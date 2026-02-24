@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -81,7 +81,7 @@ async def register(
         refresh_token = RefreshToken(
             user_id=user.id,
             token=refresh_token_str,
-            expires_at=datetime.utcnow() + timedelta(days=7),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
             revoked=False
         )
         db.add(refresh_token)
@@ -135,7 +135,7 @@ async def login(
             detail="User account is inactive"
         )
     
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     db.commit()
     
     print(f"[AUTH] Login successful for user_id={user.id}, email={user.email}")
@@ -146,7 +146,7 @@ async def login(
     refresh_token = RefreshToken(
         user_id=user.id,
         token=refresh_token_str,
-        expires_at=datetime.utcnow() + timedelta(days=7),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
         revoked=False
     )
     db.add(refresh_token)
@@ -194,7 +194,7 @@ async def refresh_token(
         RefreshToken.revoked == False
     ).first()
     
-    if not stored_token or stored_token.expires_at < datetime.utcnow():
+    if not stored_token or stored_token.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token expired or revoked"
