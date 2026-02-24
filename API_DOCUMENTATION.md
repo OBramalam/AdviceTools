@@ -7,6 +7,7 @@
 4. [API Endpoints](#api-endpoints)
    - [Authentication](#authentication-endpoints)
    - [Financial Plans](#financial-plans-endpoints)
+     - [Duplicate Financial Plan](#duplicate-financial-plan-endpoint)
    - [Cash Flows](#cash-flows-endpoints)
    - [Portfolios](#portfolio-endpoints)
    - [Adviser Config](#adviser-config-endpoints)
@@ -409,6 +410,60 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 - `404 Not Found`: Financial plan not found or doesn't belong to user
+
+---
+
+#### Duplicate Financial Plan
+
+Create a new financial plan by duplicating an existing one, including its portfolios and cash flows.
+
+- The source plan must belong to the authenticated user.
+- The new plan will have the same parameters as the source plan, but with a generated name.
+- All associated portfolios and cash flows are cloned:
+  - `plan_id` is set to the new plan's id
+  - `portfolio_id` on cash flows is remapped to the cloned portfolios
+  - `reference_cashflow_id` is remapped to the cloned cash flows
+
+**Endpoint:** `POST /api/financial-plans/{plan_id}/duplicate`
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Path Parameters:**
+- `plan_id` (integer, required): ID of the financial plan to duplicate
+
+**Request Body:**
+
+None.
+
+The new plan's name is automatically generated based on the source plan's name:
+
+- `<name> (Copy)`
+- `<name> (Copy 2)`, `<name> (Copy 3)`, ... if needed to ensure uniqueness per user.
+
+**Response:** `201 Created`
+
+Returns the duplicated financial plan.
+
+```json
+{
+  "id": 42,
+  "user_id": 1,
+  "name": "Retirement Plan 2024 (Copy)",
+  "description": "My retirement planning",
+  "start_age": 35,
+  "retirement_age": 65,
+  "plan_end_age": 100,
+  "plan_start_date": "2024-01-01T00:00:00",
+  "portfolio_target_value": 1000000.0
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Financial plan not found or doesn't belong to user
+- `500 Internal Server Error`: Failed to duplicate the financial plan
 
 ---
 

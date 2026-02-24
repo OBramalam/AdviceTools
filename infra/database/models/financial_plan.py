@@ -19,5 +19,14 @@ class FinancialPlan(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     
-    cashflows = relationship("CashFlow", back_populates="financial_plan")
-    portfolios = relationship("Portfolio", back_populates="financial_plan")
+    # When a financial plan is deleted, delete its cashflows and portfolios as well.
+    cashflows = relationship(
+        "CashFlow",
+        back_populates="financial_plan",
+        cascade="all, delete-orphan",
+    )
+    portfolios = relationship(
+        "Portfolio",
+        back_populates="financial_plan",
+        cascade="all, delete-orphan",
+    )
