@@ -14,7 +14,10 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python packages via conda (for optimized NumPy) and pip (for others)
-# First install NumPy, SciPy, pandas via conda (MKL-optimized)
+# First, ensure we're using Python 3.12 (not 3.13) to match our requirements
+RUN conda install -y -c conda-forge python=3.12 && conda clean -afy
+
+# Then install NumPy, SciPy, pandas via conda (MKL-optimized)
 RUN conda install -y -c conda-forge \
     numpy=1.26.4 \
     scipy \
