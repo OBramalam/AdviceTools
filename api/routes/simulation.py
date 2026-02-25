@@ -2,11 +2,15 @@
 import os
 import sys
 import traceback
+import time
+import logging
 from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -74,30 +78,42 @@ async def run_simulation(
     Returns simulation results.
     """
     try:
+        total_start = time.time()
+        
         # Verify plan ownership and get the financial plan
+        t0 = time.time()
         db_plan = verify_plan_ownership(request.financial_plan_id, current_user.id, db)
         financial_plan = sqlalchemy_to_pydantic_financial_plan(db_plan, FinancialPlan)
+        logger.info(f"[TIMING] Plan fetch: {time.time() - t0:.3f}s")
         
         # Create simulation service with financial plan
         # cash_flows and adviser_config will be fetched from DB if not provided
+        t0 = time.time()
         simulator = SimulationService(
             financial_plan=financial_plan,
             cash_flows=request.cash_flows,  # Optional override
             adviser_config=request.adviser_config,  # Optional override
             db=db
         )
+        logger.info(f"[TIMING] SimulationService init: {time.time() - t0:.3f}s")
         
+        # Run simulation
+        t0 = time.time()
         result = simulator.simulate()
+        logger.info(f"[TIMING] Simulation computation: {time.time() - t0:.3f}s")
         
         # Strip raw simulation_data before sending to frontend (frontend uses precomputed statistics)
+        t0 = time.time()
         result.aggregated.real.simulation_data = None
         result.aggregated.nominal.simulation_data = None
         for portfolio_result in result.individual_portfolios.values():
             portfolio_result.real.simulation_data = None
             portfolio_result.nominal.simulation_data = None
+        logger.info(f"[TIMING] Data stripping: {time.time() - t0:.3f}s")
         
         # Convert result to JSON-serializable format
         # Handle numpy arrays by converting them to lists
+        t0 = time.time()
         if hasattr(result, 'model_dump'):
             result_data = result.model_dump()
         else:
@@ -105,6 +121,10 @@ async def run_simulation(
         
         # Convert any numpy arrays to lists for JSON serialization
         result_data = convert_numpy_to_list(result_data)
+        logger.info(f"[TIMING] Data conversion/serialization: {time.time() - t0:.3f}s")
+        
+        total_time = time.time() - total_start
+        logger.info(f"[TIMING] TOTAL SIMULATION TIME: {total_time:.3f}s")
         
         return SimulationResponse(
             success=True,

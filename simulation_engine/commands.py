@@ -149,6 +149,10 @@ class RunSimulationCommand(pydantic.BaseModel):
         
         start = time.time()
         simulation.simulation_data
+        sim_time = time.time() - start
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[TIMING] Core simulation computation: {sim_time:.3f}s")
         
 
         mean = simulation.get_mean()

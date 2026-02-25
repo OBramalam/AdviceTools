@@ -1,9 +1,13 @@
 from datetime import date
 import datetime
+import time
+import logging
 from dateutil.relativedelta import relativedelta
 from typing import List, Optional, Dict
 import numpy as np
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 from schemas import FinancialPlan, CashFlow, AdviserConfig, PortfolioConfig
 from common.utils import to_annual, convert_json_to_snake, sqlalchemy_to_pydantic_cashflow, get_adviser_config_by_user_id
 from common.enums import CashFlowPeriodicity
@@ -37,7 +41,9 @@ class SimulationService:
                 raise ValueError("Database session required when cash_flows is not provided")
             if financial_plan.id is None:
                 raise ValueError("Financial plan must have an id to fetch cashflows from database")
+            t0 = time.time()
             self.cash_flows = self._get_cashflows_from_db(financial_plan.id, db)
+            logger.info(f"[TIMING] DB: Fetch cashflows: {time.time() - t0:.3f}s")
         else:
             self.cash_flows = cash_flows
 
@@ -45,7 +51,9 @@ class SimulationService:
         if adviser_config is None:
             if db and financial_plan.user_id:
                 # Fetch from database using user_id
+                t0 = time.time()
                 self.adviser_config = get_adviser_config_by_user_id(financial_plan.user_id, db)
+                logger.info(f"[TIMING] DB: Fetch adviser_config: {time.time() - t0:.3f}s")
             else:
                 # Fallback to defaults if no db session or user_id
                 self.adviser_config = AdviserConfig()  # Uses defaults from schema
@@ -63,7 +71,9 @@ class SimulationService:
         else:
             # Try to fetch portfolios from database
             if db is not None and financial_plan.id is not None:
+                t0 = time.time()
                 self.portfolios = self._get_portfolios_from_db(financial_plan.id, db)
+                logger.info(f"[TIMING] DB: Fetch portfolios: {time.time() - t0:.3f}s")
                 if self.portfolios:
                     self._validate_portfolio_allocations()
                 else:
