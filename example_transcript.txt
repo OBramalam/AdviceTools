@@ -1,0 +1,161 @@
+Adviser: Hi Alex, thanks for coming in today. To build a solid financial plan, I’ll need to understand your current situation and goals. Is it okay if I take some notes as we talk?
+
+Client: Yes, that’s fine.
+
+Adviser: Great. Let’s start with some basic details. What’s your full name, age, and where do you live?
+
+Client: My name is Alex Thompson. I’m 38 years old and I live in Wellington, New Zealand.
+
+Adviser: Thanks. What’s your relationship status and do you have any dependants?
+
+Client: I’m married. My wife’s name is Emma; she’s 36. We have two kids: Sophie, who is 7, and Max, who is 4.
+
+Adviser: Got it. Are you both in good health and working?
+
+Client: Yes, we’re both in good health. I work full-time as a software engineer. Emma works part-time as a primary school teacher.
+
+Adviser: Let’s capture incomes. What’s your gross annual income before tax?
+
+Client: I earn about NZD 150,000 a year before tax.
+
+Adviser: And Emma?
+
+Client: Emma earns around NZD 45,000 a year before tax.
+
+Adviser: Any other regular sources of income? For example, rental income, business income, benefits, or investment income?
+
+Client: We get about NZD 9,600 a year in rental income from a small investment property. No other regular income.
+
+Adviser: Good to know. Next, let’s talk about your day-to-day spending. Roughly how much do you spend per month on living expenses—things like groceries, utilities, transport, childcare, insurance, etc.?
+
+Client: Our average monthly spending is about NZD 7,000 all up. That includes groceries, utilities, fuel, childcare, insurance, and general spending.
+
+Adviser: And what about rent or mortgage payments—are those included in that NZD 7,000?
+
+Client: No, that’s separate. Our home mortgage payment is NZD 3,200 per month, principal and interest.
+
+Adviser: Understood. Let’s list your assets next, starting with your home. What’s the approximate value?
+
+Client: Our home is worth about NZD 1.2 million.
+
+Adviser: And the current mortgage balance on your home?
+
+Client: Around NZD 750,000 remaining on the mortgage.
+
+Adviser: Any other properties?
+
+Client: Yes, we have one rental property worth about NZD 600,000. The mortgage on that is around NZD 420,000.
+
+Adviser: Okay. Let’s move to investments. Do you have any investment portfolios, managed funds, or shares?
+
+Client: Yes, we have a joint investment account with about NZD 90,000 in a diversified index fund. I also have a small separate share portfolio worth about NZD 25,000.
+
+Adviser: Great. How about cash and emergency savings?
+
+Client: We keep about NZD 25,000 in a high-interest savings account for emergencies.
+
+Adviser: Let’s talk about superannuation or retirement accounts. Do you both have KiwiSaver or similar?
+
+Client: Yes. I have NZD 130,000 in KiwiSaver, invested in a growth fund. Emma has NZD 55,000 in KiwiSaver, in a balanced fund.
+
+Adviser: Any other significant assets, like business interests, term deposits, or vehicles we should list?
+
+Client: We have two cars, but I don’t really think of them as investments. No business interests or term deposits.
+
+Adviser: That’s fine; we’ll just note the cars for completeness but not as long-term investments. Now, onto liabilities besides the mortgages. Any personal loans, credit card balances, student loans, or hire purchase agreements?
+
+Client: We pay off our credit cards in full each month, so no ongoing balance. I have an old student loan of about NZD 12,000 remaining, and we’re paying that down slowly. No other personal loans.
+
+Adviser: Thanks. Let’s talk about your goals now. What are your main financial goals?
+
+Client: We’d like to be able to retire around age 65 with a comfortable lifestyle. We also want to help both kids with university costs and maybe help them with a house deposit. In the shorter term, we want to renovate our kitchen and bathrooms in the next 3–5 years.
+
+Adviser: That’s helpful. When you say “retire around 65,” is that for both you and Emma?
+
+Client: Yes, ideally I’d retire at 65. Emma says she might want to stop working a bit earlier, maybe around 63, but we can plan around 65 as the main target.
+
+Adviser: Okay. How much income would you ideally like in retirement, in today’s dollars, per year?
+
+Client: We’d like to have about NZD 90,000 per year after tax, in today’s money, for our retirement lifestyle.
+
+Adviser: Good. Do you expect NZ Superannuation to be part of your retirement income, or should we plan as if you’re fully self-funded?
+
+Client: We’d prefer to assume NZ Super continues but not rely on it completely. Maybe treat it as a safety net rather than the main income.
+
+Adviser: Understood. For the children’s education goal, what are you thinking in terms of support?
+
+Client: We’d like to be able to cover university fees and maybe some living expenses for each of them. Roughly NZD 25,000 per child, starting when they’re around 18.
+
+Adviser: And helping them with a home deposit—any particular amount or timing?
+
+Client: If we can, we’d like to give each child around NZD 50,000 towards a home deposit when they’re in their late 20s or early 30s.
+
+Adviser: Great. On the renovation goal, what’s the budget and timing?
+
+Client: We’re thinking around NZD 120,000 total over the next 3–5 years. Realistically, probably around year 3.
+
+Adviser: Perfect. Let’s discuss your risk tolerance. If we imagine a diversified portfolio, how would you feel if its value dropped by, say, 20% in a bad year?
+
+Client: I wouldn’t be happy, but I know markets go up and down. If the long-term plan still works, I can tolerate a 20% drop. I’d be worried if it was more than that without a clear plan.
+
+Adviser: So you’re comfortable with some volatility for higher long-term growth, but not extreme risk?
+
+Client: Yes, that sounds right. I’d say moderate to moderately high risk is okay, as long as we’re still on track for retirement.
+
+Adviser: Good. Time horizon-wise, your primary goal—retirement at 65—is about 27 years away for you and about 29 years for Emma. Does that match your expectations?
+
+Client: Yes, that sounds right.
+
+Adviser: Do you have any expectations about career changes, big pay rises, or extended breaks from work?
+
+Client: I might want to move into a senior architecture role in the next few years, which could increase my income a bit, maybe another NZD 20–30k. Emma is happy with part-time teaching for now, but she might increase hours when Max is older.
+
+Adviser: We’ll build in some conservative assumptions and test scenarios. Next, let’s talk about insurance and protection. Do you currently have life insurance, income protection, or trauma/critical illness cover?
+
+Client: I have life cover of NZD 800,000 through a standalone policy, and income protection that would cover 60% of my income if I couldn’t work. Emma has NZD 300,000 of life cover and no income protection.
+
+Adviser: Any health insurance for the family?
+
+Client: Yes, we have private health insurance for both of us and the kids.
+
+Adviser: Good. How about wills and estate planning—do you have valid wills in place?
+
+Client: Yes, we updated our wills when Max was born, so they’re reasonably current.
+
+Adviser: Let’s talk briefly about your current savings rate. After all regular expenses and mortgage payments, roughly how much do you save or invest per month?
+
+Client: On average, we manage to save about NZD 2,000 a month, which usually goes into the joint investment account or extra mortgage payments.
+
+Adviser: Do you have a preference between paying off the mortgage faster versus investing more?
+
+Client: We’d like advice on the right balance. We’re aware that interest rates might change, so we’re open to investing more if that makes sense long term.
+
+Adviser: Understood. Tax-wise, you’re both NZ tax residents, correct?
+
+Client: Yes, we’re both tax residents in New Zealand.
+
+Adviser: Any planned large one-off events we should know about—like an expected inheritance, selling a business, or moving overseas?
+
+Client: My parents might leave us some inheritance, but it’s uncertain and we don’t want to plan around it. No plans to move overseas at this stage.
+
+Adviser: That’s sensible. Finally, let me summarise what we’ve gathered:
+- You’re 38 and Emma is 36, with two kids aged 7 and 4, living in Wellington.
+- Combined gross income is about NZD 195,000 plus NZD 9,600 rental income.
+- Monthly living expenses are about NZD 7,000, plus NZD 3,200 on the home mortgage.
+- Assets include your home (NZD 1.2m, mortgage NZD 750k), a rental property (NZD 600k, mortgage NZD 420k), a joint investment account (NZD 90k), your share portfolio (NZD 25k), and emergency savings (NZD 25k).
+- KiwiSaver balances are NZD 130k for you (growth) and NZD 55k for Emma (balanced).
+- Other debt includes a NZD 12k student loan.
+- Goals: retire around 65 with ~NZD 90k per year after tax in today’s dollars; fund children’s university (~NZD 25k each); help with home deposits (~NZD 50k each); and renovate for ~NZD 120k in 3–5 years.
+- Risk tolerance: moderate to moderately high, willing to accept ~20% drawdowns with a long-term focus.
+- You have life and income protection insurance, family health insurance, and up-to-date wills.
+- You’re currently saving around NZD 2,000 per month on top of mortgage repayments.
+
+Does that summary sound accurate?
+
+Client: Yes, that’s a good summary of where we’re at and what we want.
+
+Adviser: Excellent. I’ll use this information to build your financial plan, model different scenarios, and come back with recommendations on savings rates, investment strategy, mortgage vs investing decisions, and how to fund your short- and long-term goals. Then we can review and adjust as needed.
+
+Client: Sounds great. Thank you.
+
+

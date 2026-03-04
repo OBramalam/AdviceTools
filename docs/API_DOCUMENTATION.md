@@ -1103,6 +1103,13 @@ Content-Type: application/json
 
 All chat endpoints require authentication.
 
+The chat API supports two contexts, so the frontend can use different AI behaviours depending on where the user is in the UI:
+
+- **`plan_builder`** (default): AI helps gather financial plan information (name, age, incomes, expenses, portfolios) so the user can export the conversation and create a plan.
+- **`dashboard`**: AI helps the user navigate and use the dashboard (layout, where to edit plan/cash flows/portfolios, etc.). When a plan is selected, the backend injects that plan’s details (incomes, expenses, portfolios) into the AI context so it can answer with real data. Chat history is kept separate per context and, for dashboard, per plan.
+
+**Frontend changes:** Send `context` and, for dashboard, `plan_id` on every chat message. Use the same `context` and `plan_id` when calling history, clear, and export so you target the correct thread.
+
 #### Send Chat Message
 
 Send a message to the AI assistant and receive a streaming response.
@@ -1118,9 +1125,17 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "message": "Hi, I'd like to start planning for my retirement. I'm 35 years old."
+  "message": "Hi, I'd like to start planning for my retirement. I'm 35 years old.",
+  "context": "plan_builder",
+  "plan_id": null
 }
 ```
+
+| Field       | Type    | Required | Default        | Description |
+|------------|---------|----------|----------------|-------------|
+| `message`  | string  | Yes      | —              | The user's message. |
+| `context`  | string  | No       | `"plan_builder"` | `"plan_builder"` or `"dashboard"`. Which AI mode to use. |
+| `plan_id`  | integer | No       | `null`         | For `context: "dashboard"`, the selected financial plan ID. Plan details (incomes, expenses, portfolios) are injected into the AI context. Omit or `null` when no plan is selected. Ignored for `plan_builder`. |
 
 **Response:** `200 OK` (Server-Sent Events stream)
 
@@ -1141,13 +1156,31 @@ data: [ERROR] <error message>\n\n
 
 **Frontend Implementation Example (JavaScript):**
 ```javascript
+// Plan builder (e.g. on "create plan" / chat-only flow)
 const response = await fetch('http://localhost:5000/api/chat/message', {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   },
-  body: JSON.stringify({ message: userMessage })
+  body: JSON.stringify({
+    message: userMessage,
+    context: 'plan_builder'
+  })
+});
+
+// Dashboard (e.g. when viewing a plan)
+const responseDashboard = await fetch('http://localhost:5000/api/chat/message', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    message: userMessage,
+    context: 'dashboard',
+    plan_id: selectedPlanId  // or null if no plan selected
+  })
 });
 
 const reader = response.body.getReader();
@@ -1186,14 +1219,23 @@ while (true) {
 
 #### Get Chat History
 
-Get the conversation history for the current user.
+Get the conversation history for the current user in the given context (and optionally for a specific plan when context is dashboard).
 
 **Endpoint:** `GET /api/chat/history`
+
+**Query Parameters:**
+
+| Parameter  | Type    | Required | Default        | Description |
+|------------|---------|----------|----------------|-------------|
+| `context`  | string  | No       | `"plan_builder"` | `"plan_builder"` or `"dashboard"`. |
+| `plan_id`  | integer | No       | —              | For `context: "dashboard"`, the plan whose chat history to return. Omit for plan_builder or when no plan selected. |
 
 **Headers:**
 ```
 Authorization: Bearer <access_token>
 ```
+
+**Example:** `GET /api/chat/history?context=dashboard&plan_id=5`
 
 **Response:** `200 OK`
 ```json
@@ -1215,9 +1257,18 @@ Authorization: Bearer <access_token>
 
 #### Clear Chat History
 
-Clear the conversation history for the current user.
+Clear the conversation history for the current user in the given context (and optionally for a specific plan when context is dashboard).
 
 **Endpoint:** `DELETE /api/chat/history`
+
+**Query Parameters:**
+
+| Parameter  | Type    | Required | Default        | Description |
+|------------|---------|----------|----------------|-------------|
+| `context`  | string  | No       | `"plan_builder"` | `"plan_builder"` or `"dashboard"`. |
+| `plan_id`  | integer | No       | —              | For `context: "dashboard"`, the plan whose chat history to clear. |
+
+**Example:** `DELETE /api/chat/history?context=dashboard&plan_id=5`
 
 **Headers:**
 ```
@@ -1236,7 +1287,7 @@ Authorization: Bearer <access_token>
 
 #### Export Chat
 
-Export chat history as text and optionally trigger parsing to create a financial plan.
+Export chat history as text (for the given context and optional plan) and optionally trigger parsing to create a financial plan. `trigger_parser` is only meaningful for `plan_builder` context.
 
 **Endpoint:** `POST /api/chat/export`
 
@@ -1249,9 +1300,17 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "trigger_parser": true
+  "trigger_parser": true,
+  "context": "plan_builder",
+  "plan_id": null
 }
 ```
+
+| Field            | Type    | Required | Default        | Description |
+|------------------|---------|----------|----------------|-------------|
+| `trigger_parser` | boolean | No       | `false`        | If `true`, run parser on exported text and create a financial plan (use with `plan_builder` context). |
+| `context`        | string  | No       | `"plan_builder"` | `"plan_builder"` or `"dashboard"`. Which thread to export. |
+| `plan_id`        | integer | No       | `null`         | For `context: "dashboard"`, the plan whose chat history to export. |
 
 **Response:** `200 OK`
 ```json
