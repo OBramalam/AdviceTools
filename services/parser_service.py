@@ -82,7 +82,7 @@ class ParserService:
                     PortfolioConfig(
                         plan_id=financial_plan.id,
                         name=portfolio.name or "Default portfolio",
-                        weights=[SimulationPortfolioWeights(step=0.0, stocks=0.6)],
+                        weights=[SimulationPortfolioWeights(step=0.0, stocks=0.6, bonds=0.38)],
                         expected_returns=ExpectedReturns(
                             stocks=adviser_config.expected_returns.get('stocks', 0.08),
                             bonds=adviser_config.expected_returns.get('bonds', 0.04),
