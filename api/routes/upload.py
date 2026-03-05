@@ -14,6 +14,7 @@ from services import ParserService
 from schemas.base_schemas import AdviserConfig
 from api.schemas.responses import UploadResponse
 from api.dependencies import get_db, get_current_active_user
+from infra.database.models.user import User
 
 router = APIRouter()
 
@@ -32,7 +33,8 @@ def allowed_file(filename: str) -> bool:
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: Annotated[UploadFile, File()],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Upload and parse a conversation file.
@@ -60,9 +62,8 @@ async def upload_file(
             raise HTTPException(status_code=400, detail="File too large (max 16MB)")
         
         filepath.write_bytes(contents)
-        
-        # TODO: Replace user_id=1 with actual authenticated user
-        parser = ParserService(user_id=get_current_active_user().id, filepath=str(filepath), db=db)
+
+        parser = ParserService(user_id=current_user.id, filepath=str(filepath), db=db)
         financial_plan, cash_flows, portfolios = parser.extract_data()
         
         adviser_config = AdviserConfig()
