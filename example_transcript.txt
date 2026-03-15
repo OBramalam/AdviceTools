@@ -14,17 +14,17 @@ Adviser: Got it. Are you both in good health and working?
 
 Client: Yes, we’re both in good health. I work full-time as a software engineer. Emma works part-time as a primary school teacher.
 
-Adviser: Let’s capture incomes. What’s your gross annual income before tax?
+Adviser: Let’s capture incomes. What’s your monthly income.
 
-Client: I earn about NZD 150,000 a year before tax.
+Client: I earn about NZD 12,000 a month before tax.
 
 Adviser: And Emma?
 
-Client: Emma earns around NZD 45,000 a year before tax.
+Client: Emma earns around NZD 5000 a year before tax.
 
 Adviser: Any other regular sources of income? For example, rental income, business income, benefits, or investment income?
 
-Client: We get about NZD 9,600 a year in rental income from a small investment property. No other regular income.
+Client: We get about NZD 750 a month in rental income from a small investment property. No other regular income.
 
 Adviser: Good to know. Next, let’s talk about your day-to-day spending. Roughly how much do you spend per month on living expenses—things like groceries, utilities, transport, childcare, insurance, etc.?
 

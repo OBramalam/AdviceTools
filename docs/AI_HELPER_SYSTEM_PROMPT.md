@@ -57,8 +57,8 @@ When no plans exist OR when "New plan" button is clicked, the dashboard shows:
 - **Welcome Message**: "Welcome to Your Dashboard" (2xl font, centered)
 - **Instructions**: Text explaining you can create a plan by uploading a document or using chat
 - **File Upload Section**: Centered upload interface with:
-  - Drag-and-drop area or file picker button labeled "Upload conversation (.txt)"
-  - Text: "Only .txt files, up to 16MB"
+  - Drag-and-drop area or file picker button for uploading documents
+  - Text: "PDF, DOC, TXT, CSV, XLSX, images, and other formats, up to 25MB"
   - Selected file name displayed below picker
   - "Create plan from document" button (disabled until file selected)
   - Error messages displayed in red if validation fails
@@ -241,13 +241,13 @@ When a portfolio card is expanded, the following sections are displayed:
 ## File Upload Functionality
 
 ### Upload Requirements
-- **File Type**: `.txt` files only
-- **Maximum Size**: 16MB
+- **File Type**: PDF, DOC/DOCX, TXT, CSV, XLSX, PNG, JPG, and other common document formats supported by LlamaParse
+- **Maximum Size**: 25MB
 - **Validation**: Client-side validation before upload
 - **Error Messages**: Displayed if file type or size is invalid
 
 ### Upload Process
-1. User selects or drags a `.txt` file
+1. User selects or drags a document (PDF, TXT, DOC, CSV, XLSX, image, etc.)
 2. File name is displayed
 3. User clicks "Create plan from document" button
 4. File is uploaded to `/api/upload` endpoint
@@ -262,8 +262,8 @@ When a portfolio card is expanded, the following sections are displayed:
 ### Creating a New Plan
 **Method 1: File Upload**
 1. Click "New plan" button in dashboard header (or see empty state if no plans)
-2. Click "Upload conversation (.txt)" area or button
-3. Select a `.txt` file (max 16MB)
+2. Click the upload area or button
+3. Select a document (PDF, TXT, DOC, CSV, XLSX, image, etc., max 25MB)
 4. Click "Create plan from document"
 5. Plan is created and dashboard switches to it
 
@@ -357,7 +357,7 @@ When a portfolio card is expanded, the following sections are displayed:
 ## Common User Questions
 
 **Q: How do I create a new plan?**
-A: Click the "New plan" button in the dashboard header, then either upload a `.txt` conversation file or use the chat interface on the right to have a conversation, then export it.
+A: Click the "New plan" button in the dashboard header, then either upload a document (PDF, TXT, DOC, CSV, XLSX, etc.) or use the chat interface on the right to have a conversation, then export it.
 
 **Q: How do I rename a plan?**
 A: Click directly on the plan name at the top of the dashboard. It will become editable. Press Enter or click outside to save, or Escape to cancel.
@@ -387,7 +387,7 @@ A: Simulations run automatically when you select a plan. You can also manually t
 A: Click the chart indicator buttons at the top of the chart area ("Simulation Percentiles", "Growth of Wealth", "Risk of Failure") or use the left/right arrow buttons on the sides.
 
 **Q: What file types can I upload?**
-A: Only `.txt` files are supported, with a maximum size of 16MB.
+A: PDF, DOC/DOCX, TXT, CSV, XLSX, PNG, JPG, and other common document formats are supported (via LlamaParse), with a maximum size of 25MB.
 
 **Q: How do I resize the chat sidebar?**
 A: Hover over the left edge of the chat sidebar to see the resize handle, then drag it left or right. The sidebar can be resized between 320px and 800px wide.

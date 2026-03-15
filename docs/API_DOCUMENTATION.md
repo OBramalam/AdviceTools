@@ -1366,8 +1366,8 @@ file: <file>
 ```
 
 **File Requirements:**
-- File type: `.txt` only
-- Max size: 16MB
+- File types: PDF, DOC, DOCX, TXT, RTF, HTML, CSV, TSV, XLSX, XLS, ODS, PPT, PPTX, PNG, JPG, GIF, BMP, TIFF, WEBP, SVG, EPUB, XML, and related formats (as supported by LlamaParse)
+- Max size: 25MB
 
 **Response:** `200 OK`
 ```json
