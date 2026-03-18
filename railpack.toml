@@ -1,0 +1,5 @@
+[build]
+nixpkgs = ["openblas", "lapack"]
+
+[python]
+requirements = "requirements.txt"
