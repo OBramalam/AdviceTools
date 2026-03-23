@@ -79,6 +79,13 @@ class CashFlow(BaseModel):
             "or as a percentage (e.g. 10 = 10%) when basis is percentage-based."
         )
     )
+    growth_rate: Optional[float] = Field(
+        None,
+        description=(
+            "Optional annual nominal growth-rate override for fixed regular recurring cashflows. "
+            "When null, growth follows plan inflation behavior."
+        ),
+    )
     periodicity: CashFlowPeriodicity = Field(default=CashFlowPeriodicity.MONTHLY, description="Time unit: 'monthly', 'quarterly', 'annually', or 'one_off'")
     frequency: int = Field(default=1, ge=1, description="Number of periods to skip between occurrences (ignored for one_off)")
     start_date: Optional[datetime] = Field(None, description="Start date (required for recurring, optional for one_off)")

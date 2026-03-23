@@ -236,6 +236,7 @@ async def duplicate_financial_plan(
                 name=cf.name,
                 description=cf.description,
                 amount=cf.amount,
+                growth_rate=getattr(cf, "growth_rate", None),
                 periodicity=cf.periodicity,
                 frequency=cf.frequency,
                 start_date=cf.start_date,

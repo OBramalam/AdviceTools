@@ -105,11 +105,12 @@ class SimulationService:
     def _simulate_multiple_portfolios(self) -> MultiPortfolioSimulationResultDTO:
         """Run simulation for multiple portfolios and return both aggregated and individual results."""
         # Build plan-level cashflow context and per-portfolio streams using CashflowService.
+        annual_inflation = self.adviser_config.inflation
         plan_ctx = self.cashflow_service.build_plan_cashflow_context(
-            self.financial_plan, self.cash_flows
+            self.financial_plan, self.cash_flows, annual_inflation=annual_inflation
         )
         portfolio_streams = self.cashflow_service.build_portfolio_streams(
-            plan_ctx, self.portfolios, self.cash_flows
+            plan_ctx, self.portfolios, self.cash_flows, annual_inflation=annual_inflation
         )
 
         step_size = SimulationStepType.MONTHLY if self.USE_MONTHLY_STEPS else SimulationStepType.ANNUAL

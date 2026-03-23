@@ -65,6 +65,20 @@ class CashflowService:
     def __init__(self, use_monthly_steps: bool = True) -> None:
         self.use_monthly_steps = use_monthly_steps
 
+    def _step_growth_factor(
+        self,
+        cashflow_annual_growth: Optional[float],
+        annual_inflation: float,
+    ) -> float:
+        """
+        Compute per-step differential growth factor relative to global inflation.
+        This avoids double-counting inflation when the engine inflates cashflows.
+        """
+        if cashflow_annual_growth is None:
+            return 1.0
+        steps_per_year = 12 if self.use_monthly_steps else 1
+        return ((1.0 + cashflow_annual_growth) / (1.0 + annual_inflation)) ** (1.0 / steps_per_year)
+
     # -------------------------------------------------------------------------
     # Core helpers
     # -------------------------------------------------------------------------
@@ -120,6 +134,7 @@ class CashflowService:
         target: Dict[int, float],
         plan_start_year: int,
         end_step: int,
+        annual_inflation: float,
     ) -> None:
         """
         Add a fixed recurring cashflow's amount into a per-step series, respecting
@@ -132,6 +147,12 @@ class CashflowService:
             getattr(cf, "periodicity", CashFlowPeriodicity.MONTHLY)
         )
         frequency = getattr(cf, "frequency", 1)
+        apply_growth_override = periodicity == CashFlowPeriodicity.MONTHLY and frequency == 1
+        start_step = self._date_to_step(cf.start_date, plan_start_year)
+        growth_factor_per_step = self._step_growth_factor(
+            getattr(cf, "growth_rate", None) if apply_growth_override else None,
+            annual_inflation=annual_inflation,
+        )
 
         if periodicity == CashFlowPeriodicity.MONTHLY:
             interval_months = frequency
@@ -148,7 +169,12 @@ class CashflowService:
         while current_date <= end_date_local:
             step = self._date_to_step(current_date, plan_start_year)
             if 0 <= step <= end_step:
-                target[step] = target.get(step, 0.0) + cf.amount
+                if apply_growth_override:
+                    step_offset = max(0, step - start_step)
+                    amount = cf.amount * (growth_factor_per_step ** step_offset)
+                else:
+                    amount = cf.amount
+                target[step] = target.get(step, 0.0) + amount
             current_date = current_date + relativedelta(months=interval_months)
 
     # -------------------------------------------------------------------------
@@ -159,6 +185,7 @@ class CashflowService:
         self,
         financial_plan: FinancialPlan,
         cash_flows: List[CashFlowSchema],
+        annual_inflation: float,
     ) -> PlanCashflowContext:
         """
         Build plan-level income, expenses, net savings, and shared sparse cashflows.
@@ -191,15 +218,15 @@ class CashflowService:
 
             if cf.amount > 0:
                 self._add_fixed_recurring_to_series(
-                    cf, income_per_step, plan_start_year, end_step
+                    cf, income_per_step, plan_start_year, end_step, annual_inflation
                 )
                 income_by_id.setdefault(cf.id, {})
                 self._add_fixed_recurring_to_series(
-                    cf, income_by_id[cf.id], plan_start_year, end_step
+                    cf, income_by_id[cf.id], plan_start_year, end_step, annual_inflation
                 )
             elif cf.amount < 0:
                 self._add_fixed_recurring_to_series(
-                    cf, expense_per_step, plan_start_year, end_step
+                    cf, expense_per_step, plan_start_year, end_step, annual_inflation
                 )
 
         net_savings_per_step: Dict[int, float] = {}
@@ -288,6 +315,7 @@ class CashflowService:
         plan_ctx: PlanCashflowContext,
         portfolios: List[PortfolioConfig],
         cash_flows: List[CashFlowSchema],
+        annual_inflation: float,
     ) -> Dict[str, PortfolioCashflowStreams]:
         """
         Build per-portfolio cashflow streams in the engine format.
@@ -342,7 +370,7 @@ class CashflowService:
                 # Fixed portfolio-specific cashflows as recurring transactions.
                 if basis == "fixed":
                     self._add_fixed_recurring_to_series(
-                        cf, per_step_transactions, plan_ctx.plan_start_year, plan_ctx.end_step
+                        cf, per_step_transactions, plan_ctx.plan_start_year, plan_ctx.end_step, annual_inflation
                     )
                     continue
 

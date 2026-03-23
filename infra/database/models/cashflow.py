@@ -16,6 +16,9 @@ class CashFlow(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
+    # Optional annual nominal growth rate override for fixed regular recurring cashflows.
+    # When NULL, cashflow growth defaults to plan inflation behavior.
+    growth_rate = Column(Float, nullable=True)
     periodicity = Column(String(20), nullable=False, default=CashFlowPeriodicity.MONTHLY.value)
     frequency = Column(Integer, nullable=False, default=1)
     start_date = Column(DateTime, nullable = True)

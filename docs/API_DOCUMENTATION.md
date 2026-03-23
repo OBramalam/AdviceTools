@@ -565,6 +565,7 @@ Authorization: Bearer <access_token>
   "name": "Rental Income",
   "description": "Monthly rental income",
   "amount": 1500.0,
+  "growth_rate": null,
   "periodicity": "monthly",
   "frequency": 1,
   "start_date": "2024-01-01T00:00:00",
@@ -598,6 +599,7 @@ Authorization: Bearer <access_token>
   "name": "Travel Expense",
   "description": "Biannual vacation",
   "amount": 5000.0,
+  "growth_rate": null,
   "periodicity": "annually",
   "frequency": 2,
   "start_date": "2024-06-01T00:00:00",
@@ -611,6 +613,7 @@ Authorization: Bearer <access_token>
   "name": "Car Purchase",
   "description": "One-time car purchase",
   "amount": -30000.0,
+  "growth_rate": null,
   "periodicity": "one_off",
   "frequency": 1,
   "start_date": "2024-12-01T00:00:00",
@@ -1623,6 +1626,7 @@ interface CashFlow {
   name: string;
   description: string;
   amount: number; // Interpretation depends on 'basis' (see below)
+  growth_rate?: number | null; // Optional annual nominal growth override for fixed regular recurring cashflows. Null/omitted = default inflation behavior.
   periodicity: "monthly" | "quarterly" | "annually" | "one_off"; // Time unit for cashflow occurrence (default: "monthly")
   frequency: number; // Number of periods to skip between occurrences (default: 1, ignored for "one_off")
   start_date?: string; // ISO 8601 datetime, required for recurring cashflows, optional for one_off
@@ -1664,6 +1668,12 @@ interface CashFlow {
   - `periodicity="one_off"`: Amount is total (single occurrence)
 - For percentage-based bases (`"pct_total_income"`, `"pct_specific_income"`, `"pct_savings"`):
   - `amount` is always interpreted as a percentage (e.g., `10` = 10%) of the chosen base at each timestep
+
+**Growth Override (`growth_rate`):**
+- `growth_rate` is an optional annual nominal growth rate override on a cashflow.
+- If omitted/null, cashflow growth follows the plan-level inflation default behavior.
+- V1 scope: applied only to fixed regular recurring cashflows (`basis="fixed"`, `periodicity="monthly"`, `frequency=1`).
+- V1 scope: not applied to one-off or irregular/transaction-style cashflows.
 
 **Date Requirements:**
 - Recurring cashflows (`monthly`, `quarterly`, `annually`): Both `start_date` and `end_date` are required
