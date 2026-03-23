@@ -50,10 +50,12 @@ class SimulationResultDTO(AbstractDTO):
     real: SimulationDataDTO
     nominal: SimulationDataDTO
     destitution: list[float]
+    below_target: list[float]
     timesteps: list[float]
     simulation_time: float
     simulation_time_per_timestep: float
     simulation_time_per_path: float
     total_parameters: int
     destitution_area: float
+    below_target_area: float
 

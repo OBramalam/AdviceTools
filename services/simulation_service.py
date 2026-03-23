@@ -163,6 +163,7 @@ class SimulationService:
                 "oneoff_transactions": streams.transactions,
                 "inflation": inflation,
                 "initial_wealth": portfolio_initial_wealth,
+                "target_value": self.financial_plan.portfolio_target_value,
                 "percentiles": [5, 25, 50, 75, 95],
                 "simulation_type": SimulationType.CHOLESKY,
                 "step_size": step_size,
@@ -235,6 +236,7 @@ class SimulationService:
             "oneoff_transactions": transactions,
             "inflation": inflation,
             "initial_wealth": 0.0,  # TODO: This method should not be used - always create default portfolio instead
+            "target_value": self.financial_plan.portfolio_target_value,
             "percentiles": [5, 25, 50, 75, 95],
             "simulation_type": SimulationType.CHOLESKY,
             "step_size": step_size,
@@ -620,10 +622,19 @@ class SimulationService:
         # Calculate destitution risk (any portfolio at zero = destitute)
         # For aggregated wealth, destitution is when total wealth is zero
         destitution_risk = (aggregated_nominal_data == 0).sum(axis=0) / aggregated_nominal_data.shape[0]
+        if self.financial_plan.portfolio_target_value is None:
+            below_target_risk = np.zeros_like(destitution_risk, dtype=float)
+        else:
+            below_target_risk = (aggregated_nominal_data < self.financial_plan.portfolio_target_value).sum(axis=0) / aggregated_nominal_data.shape[0]
         
         # Calculate time deltas (same as in simulation engine)
         time_deltas = np.diff(np.concatenate([[0], timesteps]))
-        destitution_area = np.sum(destitution_risk * time_deltas) / np.sum(time_deltas) if np.sum(time_deltas) > 0 else 0.0
+        if np.sum(time_deltas) > 0:
+            destitution_area = np.sum(destitution_risk * time_deltas) / np.sum(time_deltas)
+            below_target_area = np.sum(below_target_risk * time_deltas) / np.sum(time_deltas)
+        else:
+            destitution_area = 0.0
+            below_target_area = 0.0
         
         # Build aggregated DTOs
         aggregated_nominal = SimulationDataDTO(
@@ -660,10 +671,12 @@ class SimulationService:
             real=aggregated_real,
             nominal=aggregated_nominal,
             destitution=destitution_risk.tolist(),
+            below_target=below_target_risk.tolist(),
             timesteps=timesteps,
             simulation_time=total_simulation_time,
             simulation_time_per_timestep=total_simulation_time / len(timesteps) if len(timesteps) > 0 else 0.0,
             simulation_time_per_path=total_simulation_time / self.adviser_config.number_of_simulations,
             total_parameters=total_parameters,
             destitution_area=destitution_area,
+            below_target_area=below_target_area,
         )

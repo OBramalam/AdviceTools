@@ -26,6 +26,7 @@ class RunSimulationCommandTF(pydantic.BaseModel):
     oneoff_transactions: list[CashFlow] = []
     inflation: float = 0.03
     initial_wealth: float = 0.0
+    target_value: float | None = None
     percentiles: list[float] = [5, 25, 50, 75, 95]
     simulation_type: SimulationType = pydantic.Field(default=SimulationType.CHOLESKY)
     step_size: SimulationStepType = pydantic.Field(default=SimulationStepType.ANNUAL)
@@ -117,6 +118,10 @@ class RunSimulationCommandTF(pydantic.BaseModel):
         percentiles_tf = tfp.stats.percentile(sim_data_tf, q=self.percentiles, axis=0, interpolation="linear")
 
         destitution_tf = tf.reduce_mean(tf.cast(tf.equal(sim_data_tf, 0), tf.float64), axis=0)
+        if self.target_value is None:
+            below_target_tf = tf.zeros_like(destitution_tf, dtype=tf.float64)
+        else:
+            below_target_tf = tf.reduce_mean(tf.cast(tf.less(sim_data_tf, self.target_value), tf.float64), axis=0)
 
         end = time.time()
 
@@ -126,6 +131,7 @@ class RunSimulationCommandTF(pydantic.BaseModel):
         median = median_tf.numpy()
         percentiles = percentiles_tf.numpy()
         destitution = destitution_tf.numpy()
+        below_target = below_target_tf.numpy()
 
         final_std = float(np.std(simulation_data[:, -1]))
         final_min = float(np.min(simulation_data[:, -1]))
@@ -138,7 +144,14 @@ class RunSimulationCommandTF(pydantic.BaseModel):
         final_min_real = float(np.min(simulation_data_real[:, -1]))
         final_max_real = float(np.max(simulation_data_real[:, -1]))
 
-        destitution_area = float(np.sum(destitution * pd.Series(self.base_simulation_data.time_delta).fillna(0).values) / np.sum(pd.Series(self.base_simulation_data.time_delta).fillna(0).values))
+        time_deltas = pd.Series(self.base_simulation_data.time_delta).fillna(0).values
+        total_time_delta = np.sum(time_deltas)
+        if total_time_delta > 0:
+            destitution_area = float(np.sum(destitution * time_deltas) / total_time_delta)
+            below_target_area = float(np.sum(below_target * time_deltas) / total_time_delta)
+        else:
+            destitution_area = 0.0
+            below_target_area = 0.0
 
         nominal = SimulationDataDTO(
             simulation_data=simulation_data,
@@ -165,12 +178,14 @@ class RunSimulationCommandTF(pydantic.BaseModel):
             real=real,
             nominal=nominal,
             destitution=destitution.tolist(),
+            below_target=below_target.tolist(),
             timesteps=timesteps,
             simulation_time=end - start,
             simulation_time_per_timestep=(end - start) / len(timesteps),
             total_parameters=len(timesteps) * 3 * simulation.number_of_simulations,
             simulation_time_per_path=(end - start) / simulation.number_of_simulations,
             destitution_area=destitution_area,
+            below_target_area=below_target_area,
         )
 
     def handle_tf(self) -> tf.Tensor:

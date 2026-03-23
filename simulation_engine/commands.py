@@ -23,6 +23,7 @@ class RunSimulationCommand(pydantic.BaseModel):
     oneoff_transactions: list[CashFlow] = []
     inflation: float = 0.03
     initial_wealth: float = 0.0
+    target_value: float | None = None
     percentiles: list[float] = [5, 25, 50, 75, 95]
     simulation_type: SimulationType = pydantic.Field(default=SimulationType.CHOLESKY)
     step_size: SimulationStepType = pydantic.Field(default=SimulationStepType.ANNUAL)
@@ -172,7 +173,10 @@ class RunSimulationCommand(pydantic.BaseModel):
         )
 
         destitution_risk = (simulation.simulation_data == 0).sum(axis=0) / simulation.simulation_data.shape[0]
-        destitution_risk = destitution_risk
+        if self.target_value is None:
+            below_target_risk = np.zeros_like(destitution_risk, dtype=float)
+        else:
+            below_target_risk = (simulation.simulation_data < self.target_value).sum(axis=0) / simulation.simulation_data.shape[0]
 
         final_std=np.std(simulation.simulation_data[-1])
         final_min=np.min(simulation.simulation_data[-1])
@@ -185,7 +189,14 @@ class RunSimulationCommand(pydantic.BaseModel):
         final_min_real = np.min(real_data[-1])
         final_max_real = np.max(real_data[-1])
         
-        destitution_area = np.sum(destitution_risk * self.base_simulation_data.time_delta.fillna(0).values)/ np.sum(self.base_simulation_data.time_delta.fillna(0).values)
+        time_deltas = self.base_simulation_data.time_delta.fillna(0).values
+        total_time_delta = np.sum(time_deltas)
+        if total_time_delta > 0:
+            destitution_area = np.sum(destitution_risk * time_deltas) / total_time_delta
+            below_target_area = np.sum(below_target_risk * time_deltas) / total_time_delta
+        else:
+            destitution_area = 0.0
+            below_target_area = 0.0
         
         end = time.time()
         
@@ -220,10 +231,12 @@ class RunSimulationCommand(pydantic.BaseModel):
             real=real,
             nominal=nominal,
             destitution=destitution_risk.tolist(),
+            below_target=below_target_risk.tolist(),
             timesteps=self.base_simulation_data.index.to_list(),
             simulation_time=end - start,
             simulation_time_per_timestep=(end - start) / len(self.base_simulation_data.index),
             total_parameters=len(self.base_simulation_data.index) * 3 * simulation.number_of_simulations,
             simulation_time_per_path=(end - start) / simulation.number_of_simulations,
             destitution_area=destitution_area,
+            below_target_area=below_target_area,
         )

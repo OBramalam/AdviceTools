@@ -1519,12 +1519,14 @@ Always returns a `MultiPortfolioSimulationResultDTO` for consistent structure:
         "final_max": 8000000.0
       },
       "destitution": [0.0, 0.001, 0.002, ...],
+      "below_target": [0.95, 0.94, 0.93, ...],
       "timesteps": [0, 1, 2, 3, ...],  // Units depend on timestep_unit: months if "monthly", years if "annual"
       "simulation_time": 0.123,
       "simulation_time_per_timestep": 0.002,
       "simulation_time_per_path": 0.0001,
       "total_parameters": 354000,
-      "destitution_area": 0.0025
+      "destitution_area": 0.0025,
+      "below_target_area": 0.912
     },
     "individual_portfolios": {
       "default": {
@@ -1533,12 +1535,14 @@ Always returns a `MultiPortfolioSimulationResultDTO` for consistent structure:
         "real": { ... },
         "nominal": { ... },
         "destitution": [...],
+        "below_target": [...],
         "timesteps": [...],  // Units depend on timestep_unit at top level
         "simulation_time": 0.123,
         "simulation_time_per_timestep": 0.002,
         "simulation_time_per_path": 0.0001,
         "total_parameters": 354000,
-        "destitution_area": 0.0025
+        "destitution_area": 0.0025,
+        "below_target_area": 0.912
       }
     }
   }
@@ -1571,6 +1575,7 @@ Always returns a `MultiPortfolioSimulationResultDTO` for consistent structure:
 - The endpoint requires authentication and automatically verifies that the financial plan belongs to the authenticated user.
 - Cash flows are fetched from the database, so ensure the financial plan has associated cash flows created via the Cash Flows endpoints.
 - Portfolios are automatically fetched from the database. If portfolios exist for the financial plan, they will be used for the simulation. Create portfolios via the Portfolio endpoints.
+- `below_target` and `below_target_area` use `financial_plan.portfolio_target_value` as the threshold.
 - The response always uses the same structure (`MultiPortfolioSimulationResultDTO`) for consistency:
   - **Single portfolio** (default): `individual_portfolios` contains one entry with key `"default"`, and `aggregated` is identical to this result
   - **Multi-portfolio**: `individual_portfolios` contains separate results for each portfolio (keyed by portfolio database ID as string), and `aggregated` represents the combined wealth across all portfolios
@@ -1857,12 +1862,14 @@ interface SimulationResultDTO {
   real: SimulationDataDTO; // Inflation-adjusted wealth values
   nominal: SimulationDataDTO; // Current dollar values (not inflation-adjusted)
   destitution: number[]; // Probability of destitution at each timestep (0.0 to 1.0)
+  below_target: number[]; // Probability wealth is below FinancialPlan.portfolio_target_value at each timestep (0.0 to 1.0)
   timesteps: number[]; // Time points for each data point (units: months if timestep_unit="monthly", years if timestep_unit="annual")
   simulation_time: number; // Total execution time in seconds
   simulation_time_per_timestep: number; // Average time per timestep
   simulation_time_per_path: number; // Average time per simulation path
   total_parameters: number; // Total number of parameters computed
   destitution_area: number; // Time-weighted average destitution risk
+  below_target_area: number; // Time-weighted average below-target risk
 }
 ```
 

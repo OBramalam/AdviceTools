@@ -36,6 +36,7 @@ class SimulationResultDTO(AbstractDTO):
     real: SimulationDataDTO
     nominal: SimulationDataDTO
     destitution: list[float]
+    below_target: list[float]
     timesteps: list[float]
     # final_mean: float
     # final_median: float
@@ -47,6 +48,7 @@ class SimulationResultDTO(AbstractDTO):
     simulation_time_per_path: float
     total_parameters: int
     destitution_area: float
+    below_target_area: float
 
 
 class MultiPortfolioSimulationResultDTO(AbstractDTO):
