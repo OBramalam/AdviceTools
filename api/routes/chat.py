@@ -14,6 +14,7 @@ from services.chat_service import (
     ChatService,
     CHAT_CONTEXT_PLAN_BUILDER,
     CHAT_CONTEXT_DASHBOARD,
+    resolve_plan_builder_jurisdiction_key,
 )
 from api.dependencies import get_db, get_current_active_user
 from api.schemas.chat import (
@@ -113,6 +114,12 @@ async def send_chat_message(
     if request.context == CHAT_CONTEXT_DASHBOARD and request.plan_id is not None:
         plan_context = build_plan_context(request.plan_id, current_user.id, db)
 
+    plan_builder_jurisdiction_key = None
+    if request.context == CHAT_CONTEXT_PLAN_BUILDER:
+        plan_builder_jurisdiction_key = resolve_plan_builder_jurisdiction_key(
+            current_user.id, db
+        )
+
     def generate_stream() -> Generator[str, None, None]:
         try:
             for chunk in chat_service.send_message(
@@ -121,6 +128,7 @@ async def send_chat_message(
                 context=request.context,
                 plan_id=request.plan_id,
                 plan_context=plan_context,
+                plan_builder_jurisdiction_key=plan_builder_jurisdiction_key,
             ):
                 yield f"data: {chunk}\n\n"
             yield "data: [DONE]\n\n"
@@ -150,13 +158,24 @@ def _validate_context(context: str) -> str:
 @router.get("/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
     context: str = Query(CHAT_CONTEXT_PLAN_BUILDER, description="Chat context: plan_builder or dashboard"),
     plan_id: Optional[int] = Query(None, description="Plan ID (for dashboard context)"),
 ):
     """Get the chat history for the current user in the given context."""
     context = _validate_context(context)
     chat_service = get_chat_service()
-    history = chat_service.get_chat_history(current_user.id, context=context, plan_id=plan_id)
+    plan_builder_jurisdiction_key = None
+    if context == CHAT_CONTEXT_PLAN_BUILDER:
+        plan_builder_jurisdiction_key = resolve_plan_builder_jurisdiction_key(
+            current_user.id, db
+        )
+    history = chat_service.get_chat_history(
+        current_user.id,
+        context=context,
+        plan_id=plan_id,
+        plan_builder_jurisdiction_key=plan_builder_jurisdiction_key,
+    )
     messages = [ChatMessage(role=msg["role"], content=msg["content"]) for msg in history]
     return ChatHistoryResponse(messages=messages)
 
@@ -164,13 +183,24 @@ async def get_chat_history(
 @router.delete("/history")
 async def clear_chat_history(
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
     context: str = Query(CHAT_CONTEXT_PLAN_BUILDER, description="Chat context: plan_builder or dashboard"),
     plan_id: Optional[int] = Query(None, description="Plan ID (for dashboard context)"),
 ):
     """Clear the chat history for the current user in the given context."""
     context = _validate_context(context)
     chat_service = get_chat_service()
-    chat_service.clear_chat_history(current_user.id, context=context, plan_id=plan_id)
+    plan_builder_jurisdiction_key = None
+    if context == CHAT_CONTEXT_PLAN_BUILDER:
+        plan_builder_jurisdiction_key = resolve_plan_builder_jurisdiction_key(
+            current_user.id, db
+        )
+    chat_service.clear_chat_history(
+        current_user.id,
+        context=context,
+        plan_id=plan_id,
+        plan_builder_jurisdiction_key=plan_builder_jurisdiction_key,
+    )
     return {"success": True, "message": "Chat history cleared"}
 
 
@@ -182,11 +212,18 @@ async def export_chat(
 ):
     chat_service = get_chat_service()
 
+    plan_builder_jurisdiction_key = None
+    if request.context == CHAT_CONTEXT_PLAN_BUILDER:
+        plan_builder_jurisdiction_key = resolve_plan_builder_jurisdiction_key(
+            current_user.id, db
+        )
+
     try:
         chat_text = chat_service.export_chat_history(
             current_user.id,
             context=request.context,
             plan_id=request.plan_id,
+            plan_builder_jurisdiction_key=plan_builder_jurisdiction_key,
         )
 
         if not chat_text:

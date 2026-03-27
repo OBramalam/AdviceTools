@@ -68,6 +68,7 @@ async def update_adviser_config(
     db_config.expected_returns = config_data.get('expected_returns')
     db_config.number_of_simulations = config_data.get('number_of_simulations')
     db_config.allocation_step = config_data.get('allocation_step', 0.10)
+    db_config.tax_jurisdiction = config_data.get('tax_jurisdiction')
     
     db.commit()
     db.refresh(db_config)

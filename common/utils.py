@@ -4,6 +4,8 @@ from dateutil.relativedelta import relativedelta
 import re
 from typing import Union, TYPE_CHECKING, Optional, Dict, Any
 
+from sqlalchemy.exc import OperationalError
+
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
@@ -226,9 +228,19 @@ def get_adviser_config_by_user_id(user_id: int, db: "Session", use_defaults_if_n
     """
     from infra.database.models.adviser_config import AdviserConfig as DBAdviserConfig
     from schemas.base_schemas import AdviserConfig
-    
-    db_config = db.query(DBAdviserConfig).filter(DBAdviserConfig.user_id == user_id).first()
-    
+
+    try:
+        db_config = db.query(DBAdviserConfig).filter(DBAdviserConfig.user_id == user_id).first()
+    except OperationalError as e:
+        # Unmigrated or partial DB (e.g. notebook sqlite) — same as "no row" when defaults allowed.
+        orig = str(e.orig).lower() if getattr(e, "orig", None) else str(e).lower()
+        if use_defaults_if_not_found and (
+            ("no such table" in orig and "adviser_config" in orig)
+            or ("does not exist" in orig and "adviser_config" in orig)
+        ):
+            return AdviserConfig()
+        raise
+
     if db_config:
         return sqlalchemy_to_pydantic_adviser_config(db_config, AdviserConfig)
     elif use_defaults_if_not_found:

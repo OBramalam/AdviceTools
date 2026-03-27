@@ -1,13 +1,16 @@
 import os
 from pathlib import Path
-from typing import Generator, List, Dict, Optional
+from typing import Generator, List, Dict, Optional, TYPE_CHECKING
 from dotenv import load_dotenv
 from openai import OpenAI
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 load_dotenv()
 
-# System prompt for the plan-builder flow (gathering financial plan information)
-PLAN_BUILDER_SYSTEM_PROMPT = """You are a helpful financial planning assistant. Your goal is to have a natural conversation with the user to gather all the information needed to create a comprehensive financial plan.
+# Shared plan-builder core (all jurisdictions)
+PLAN_BUILDER_CORE_PROMPT = """You are a helpful financial planning assistant. Your goal is to have a natural conversation with the user to gather all the information needed to create a comprehensive financial plan.
 
 You need to gather the following information:
 1. Client/plan name
@@ -45,16 +48,85 @@ them to confirm or let us know if this is not the case for any of these items.
 Make sure to gather all the required information before concluding the conversation and instructing 
 the user to press the 'Export and parse' button."""
 
-# Backward compatibility alias
+# New Zealand — aligns with NZ extraction (KiwiSaver linked to portfolio names)
+PLAN_BUILDER_NZ_APPENDIX = """
+
+## New Zealand (KiwiSaver)
+
+The downstream parser expects KiwiSaver details tied to **portfolio names** that already appear in the portfolios list.
+
+After you have portfolios and income sources named clearly, for **each KiwiSaver account** (each distinct KiwiSaver balance or scheme the client holds as a separate portfolio):
+
+1. Confirm which **portfolio name** in the list is the KiwiSaver bucket (the name must match exactly later).
+2. **Employee** KiwiSaver contribution rate as a percentage of the relevant income (e.g. 3, 4, 6, 8, 10).
+3. **Employer** contribution rate as a percentage (or what the client knows, e.g. employer matches 3%).
+4. Which **single income source name** the contributions are based on (must match the income name you gathered earlier, e.g. "Salary").
+
+If the client has no KiwiSaver or you do not need it for the plan, you may still list portfolios without KiwiSaver — omit extra KiwiSaver detail only when clearly not applicable. Use the same currency and terminology (NZD, KiwiSaver) the client uses."""
+
+# Australia — placeholder for future super-specific extraction; currently same structure as base
+PLAN_BUILDER_AU_APPENDIX = """
+
+## Australia (superannuation)
+
+Where relevant, ask about employer super contributions (e.g. SG rate) and any salary sacrifice; note portfolio names clearly so they can be matched to investment buckets later."""
+
+
+def _plan_builder_jurisdiction_suffix(jurisdiction_key: str) -> str:
+    """Return a stable segment for chat history keys (nz, au, default)."""
+    if jurisdiction_key == "nz":
+        return "nz"
+    if jurisdiction_key == "au":
+        return "au"
+    return "default"
+
+
+def build_plan_builder_system_prompt(jurisdiction_key: str) -> str:
+    """Core + jurisdiction-specific appendix. Same routing idea as ParserService (tax_jurisdiction)."""
+    core = PLAN_BUILDER_CORE_PROMPT.strip()
+    if jurisdiction_key == "nz":
+        return f"{core}{PLAN_BUILDER_NZ_APPENDIX}"
+    if jurisdiction_key == "au":
+        return f"{core}{PLAN_BUILDER_AU_APPENDIX}"
+    return core
+
+
+def resolve_plan_builder_jurisdiction_key(user_id: int, db: "Session") -> str:
+    """Aligns with parser: adviser `tax_jurisdiction` → nz, au, or default."""
+    from common.utils import get_adviser_config_by_user_id
+
+    ac = get_adviser_config_by_user_id(user_id, db)
+    j = (ac.tax_jurisdiction or "").strip().lower()
+    if j == "nz":
+        return "nz"
+    if j == "au":
+        return "au"
+    return "default"
+
+
+# Backward compatibility: default / generic plan builder prompt
+PLAN_BUILDER_SYSTEM_PROMPT = build_plan_builder_system_prompt("default")
 SYSTEM_PROMPT = PLAN_BUILDER_SYSTEM_PROMPT
 
 CHAT_CONTEXT_PLAN_BUILDER = "plan_builder"
 CHAT_CONTEXT_DASHBOARD = "dashboard"
 
 
-def _history_key(user_id: int, context: str, plan_id: Optional[int]) -> str:
-    """Return a string key for chat history storage."""
-    return f"{user_id}:{context}:{plan_id or ''}"
+def _history_key(
+    user_id: int,
+    context: str,
+    plan_id: Optional[int],
+    plan_builder_jurisdiction_key: Optional[str] = None,
+) -> str:
+    """Return a string key for chat history storage.
+
+    plan_builder_jurisdiction_key isolates threads when adviser tax_jurisdiction changes (nz / au / default).
+    """
+    base = f"{user_id}:{context}:{plan_id or ''}"
+    if context == CHAT_CONTEXT_PLAN_BUILDER:
+        suffix = _plan_builder_jurisdiction_suffix(plan_builder_jurisdiction_key or "default")
+        return f"{base}:{suffix}"
+    return base
 
 
 def _load_dashboard_ui_doc() -> str:
@@ -87,13 +159,19 @@ class ChatService:
         self.client = OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4")
 
-        # In-memory storage: key = _history_key(user_id, context, plan_id), value = list of messages
+        # In-memory storage: key = _history_key(...), value = list of messages
         self._chat_histories: Dict[str, List[Dict[str, str]]] = {}
 
-    def _get_system_prompt(self, context: str, plan_context: Optional[str]) -> str:
+    def _get_system_prompt(
+        self,
+        context: str,
+        plan_context: Optional[str],
+        plan_builder_jurisdiction_key: Optional[str] = None,
+    ) -> str:
         if context == CHAT_CONTEXT_DASHBOARD:
             return _build_dashboard_system_prompt(plan_context)
-        return PLAN_BUILDER_SYSTEM_PROMPT
+        jk = plan_builder_jurisdiction_key or "default"
+        return build_plan_builder_system_prompt(jk)
 
     def _get_messages(
         self,
@@ -101,11 +179,14 @@ class ChatService:
         context: str,
         plan_id: Optional[int],
         plan_context: Optional[str],
+        plan_builder_jurisdiction_key: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """Get the message history for a user/context/plan, including system prompt."""
-        system_prompt = self._get_system_prompt(context, plan_context)
+        system_prompt = self._get_system_prompt(
+            context, plan_context, plan_builder_jurisdiction_key
+        )
         messages = [{"role": "system", "content": system_prompt}]
-        key = _history_key(user_id, context, plan_id)
+        key = _history_key(user_id, context, plan_id, plan_builder_jurisdiction_key)
         if key in self._chat_histories:
             messages.extend(self._chat_histories[key])
         return messages
@@ -117,6 +198,7 @@ class ChatService:
         context: str = CHAT_CONTEXT_PLAN_BUILDER,
         plan_id: Optional[int] = None,
         plan_context: Optional[str] = None,
+        plan_builder_jurisdiction_key: Optional[str] = None,
     ) -> Generator[str, None, None]:
         """
         Send a user message and stream the assistant's response.
@@ -127,17 +209,20 @@ class ChatService:
             context: One of "plan_builder" or "dashboard"
             plan_id: Optional plan ID (for dashboard context, used for history key)
             plan_context: Optional pre-formatted plan details string (for dashboard, injected into system prompt)
+            plan_builder_jurisdiction_key: For plan_builder only: "nz", "au", or "default" (from adviser tax_jurisdiction).
 
         Yields:
             Chunks of the assistant's response as they arrive
         """
-        key = _history_key(user_id, context, plan_id)
+        key = _history_key(user_id, context, plan_id, plan_builder_jurisdiction_key)
         if key not in self._chat_histories:
             self._chat_histories[key] = []
 
         self._chat_histories[key].append({"role": "user", "content": user_message})
 
-        messages = self._get_messages(user_id, context, plan_id, plan_context)
+        messages = self._get_messages(
+            user_id, context, plan_id, plan_context, plan_builder_jurisdiction_key
+        )
 
         stream = self.client.chat.completions.create(
             model=self.model,
@@ -162,6 +247,7 @@ class ChatService:
         user_id: int,
         context: str = CHAT_CONTEXT_PLAN_BUILDER,
         plan_id: Optional[int] = None,
+        plan_builder_jurisdiction_key: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """
         Get the chat history for a user in the given context (without system prompt).
@@ -170,11 +256,12 @@ class ChatService:
             user_id: The ID of the user
             context: One of "plan_builder" or "dashboard"
             plan_id: Optional plan ID (for dashboard context)
+            plan_builder_jurisdiction_key: For plan_builder, must match send_message / export.
 
         Returns:
             List of messages in the format [{"role": "user/assistant", "content": "..."}]
         """
-        key = _history_key(user_id, context, plan_id)
+        key = _history_key(user_id, context, plan_id, plan_builder_jurisdiction_key)
         return self._chat_histories.get(key, [])
 
     def clear_chat_history(
@@ -182,6 +269,7 @@ class ChatService:
         user_id: int,
         context: str = CHAT_CONTEXT_PLAN_BUILDER,
         plan_id: Optional[int] = None,
+        plan_builder_jurisdiction_key: Optional[str] = None,
     ) -> None:
         """
         Clear the chat history for a user in the given context.
@@ -190,8 +278,9 @@ class ChatService:
             user_id: The ID of the user
             context: One of "plan_builder" or "dashboard"
             plan_id: Optional plan ID (for dashboard context)
+            plan_builder_jurisdiction_key: For plan_builder, must match send_message.
         """
-        key = _history_key(user_id, context, plan_id)
+        key = _history_key(user_id, context, plan_id, plan_builder_jurisdiction_key)
         if key in self._chat_histories:
             del self._chat_histories[key]
 
@@ -200,6 +289,7 @@ class ChatService:
         user_id: int,
         context: str = CHAT_CONTEXT_PLAN_BUILDER,
         plan_id: Optional[int] = None,
+        plan_builder_jurisdiction_key: Optional[str] = None,
     ) -> str:
         """
         Export chat history as a text string suitable for saving to a file.
@@ -208,11 +298,14 @@ class ChatService:
             user_id: The ID of the user
             context: One of "plan_builder" or "dashboard"
             plan_id: Optional plan ID (for dashboard context)
+            plan_builder_jurisdiction_key: For plan_builder, must match send_message.
 
         Returns:
             Formatted text string of the conversation
         """
-        history = self.get_chat_history(user_id, context, plan_id)
+        history = self.get_chat_history(
+            user_id, context, plan_id, plan_builder_jurisdiction_key
+        )
         if not history:
             return ""
         lines = []

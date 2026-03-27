@@ -50,7 +50,6 @@ class Portfolio(BaseModel):
         description="Nominal dollar value of initial wealth allocated to this portfolio",
     )
 
-
 class ExtractionSchema(BaseModel):
     name: str = Field(description="Name of the client")
     age: float = Field(description="Age of the client")
@@ -59,3 +58,31 @@ class ExtractionSchema(BaseModel):
     incomes: list[Income] = Field(default_factory=list, description="A list of Income objects defining each source of income described in the text to be extracted. Only extract savings data as income if no incomes and expenses are present in document and savings amount is specifically quoted.")
     expenses: list[Expense] = Field(default_factory=list, description="A list of Expense objects defining each expense described in the text to be extracted.")
     portfolios: list[Portfolio] = Field(default_factory=list, description="A list of Portfolio objects defining each portfolio described in the text to be extracted.")
+
+
+
+class BaseExtractionSchema(BaseModel):
+    name: str = Field(description="Name of the client")
+    age: float = Field(description="Age of the client")
+    retirement_age: float = Field(description="Age the client would like to retire")
+    plan_end_age: float = Field(description="Age the client would like to plan to")
+    incomes: list[Income] = Field(default_factory=list, description="A list of Income objects defining each source of income described in the text to be extracted. Only extract savings data as income if no incomes and expenses are present in document and savings amount is specifically quoted.")
+    expenses: list[Expense] = Field(default_factory=list, description="A list of Expense objects defining each expense described in the text to be extracted.")
+    portfolios: list[Portfolio] = Field(default_factory=list, description="A list of Portfolio objects defining each portfolio described in the text to be extracted.")
+
+class KiwisaverSpecificData(BaseModel):
+    kiwisaver_portfolio_name: str = Field(
+        description=(
+            "The portfolio name for this KiwiSaver bucket. Must exactly match one of the names "
+            "in the main portfolios list. Do not include non-KiwiSaver portfolios."
+        )
+    )
+    kiwisaver_employee_contribution: float = Field(description="Percentage of income that the client contributes to KiwiSaver for each kiwisaver portfolio")
+    kiwisaver_employer_contribution: float = Field(description="Percentage of income that the employer contributes to KiwiSaver for each kiwisaver portfolio")
+    reference_income: str = Field(description="The name of the income source that the kiwisaver contributions are based on")
+
+class NZExtractionSchema(BaseExtractionSchema):
+    kiwisaver_specific_data: list[KiwisaverSpecificData] = Field(description="A list of KiwisaverSpecificData objects defining the client's kiwisaver portfolio(s)'")
+
+class AUExtractionSchema(BaseExtractionSchema):
+    pass

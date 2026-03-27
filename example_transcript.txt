@@ -50,13 +50,13 @@ Adviser: Okay. Let’s move to investments. Do you have any investment portfolio
 
 Client: Yes, we have a joint investment account with about NZD 90,000 in a diversified index fund. I also have a small separate share portfolio worth about NZD 25,000.
 
-Adviser: Great. How about cash and emergency savings?
-
-Client: We keep about NZD 25,000 in a high-interest savings account for emergencies.
-
 Adviser: Let’s talk about superannuation or retirement accounts. Do you both have KiwiSaver or similar?
 
 Client: Yes. I have NZD 130,000 in KiwiSaver, invested in a growth fund. Emma has NZD 55,000 in KiwiSaver, in a balanced fund.
+
+Adviser: What are the contribution rates for your Kiwisaver? 
+
+Client: I contribute 6% of my Salary to my Kiwisaver and my employer matches the first 3%. Same with Emma but for her Salary.
 
 Adviser: Any other significant assets, like business interests, term deposits, or vehicles we should list?
 
